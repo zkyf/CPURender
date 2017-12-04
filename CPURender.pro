@@ -25,17 +25,16 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    daemodel.cpp \
     cpurenderer.cpp \
     camera3d.cpp \
     light.cpp \
     transform3d.cpp
 
 HEADERS  += mainwindow.h \
-    daemodel.hpp \
     cpurenderer.h \
     camera3d.h \
     light.h \
-    transform3d.h
+    transform3d.h \
+    simplemesh.h
 
 FORMS    += mainwindow.ui

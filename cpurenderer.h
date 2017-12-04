@@ -9,45 +9,64 @@
 #include <QVector>
 #include <QVector3D>
 #include <QVector2D>
-#include "daemodel.hpp"
 #include "transform3d.h"
 #include "camera3d.h"
 #include "light.h"
+#include "simplemesh.h"
 
 #ifndef CGL_DEFINES
 #define CGL_DEFINES
 
 #endif
 
+struct Geometry
+{
+  QVector<QVector3D> vecs;
+  QVector<QVector2D> pos;
+  QVector<QVector3D> norms;
+  QVector<QVector2D> texcoords;
+
+  QVector3D ambient;
+  QVector3D diffuse;
+  QVector3D specular;
+};
+
+typedef QLinkedList<Geometry>::iterator GI;
+
 struct ColorPixel
 {
-  uint bytesPerPixel;
-  uchar* bytes;
+  float r;
+  float g;
+  float b;
+  float a;
 
-  ColorPixel(const uint& b=3) : bytes(nullptr), bytesPerPixel(b)
+  ColorPixel(float rr=0, float gg=0, float bb=0, float aa=0) :
+    r(rr), g(gg), b(bb), a(aa) {}
+};
+
+struct ColorBuffer
+{
+  QSize size;
+  ColorBuffer* buffer;
+
+  ColorBuffer(QSize s) : size(s), buffer(nullptr)
   {
-    if(b>0)
+    buffer = new ColorPixel[s.width()*s.height()];
+  }
+  ~ColorBuffer() { delete[] buffer; }
+  void Resize(QSize s)
+  {
+    size = s;
+    delete[] buffer;
+    buffer = new ColorPixel[size.width(), size.height()];
+  }
+  void Clear(ColorPixel p = ColorPixel())
+  {
+    for(int i=0; i<size.width()*size.height(); i++)
     {
-      b=new uchar[b];
+      buffer[i]=p;
     }
   }
-
-  ~ColorPixel() { if(bytes) delete[] bytes; }
-
-  void SetBytesPerPixel(const uint& b)
-  {
-   if(bytes)
-   {
-     delete[] bytes;
-   }
-   bytes = new uchar[b];
-   bytesPerPixel = b;
-  }
-
-  uchar& r() { return bytes[0]; }
-  uchar& g() { return bytes[1]; }
-  uchar& b() { return bytes[2]; }
-  uchar& a() { return bytes[3]; }
 };
 
 struct DepthFragment
@@ -58,22 +77,57 @@ struct DepthFragment
   bool opaque;
 };
 
-typedef QLinkedList<DepthFragment> DepthPixel;
+struct DepthPixel
+{
+  QLinkedList<DepthFragment> chain;
+};
+
+struct DepthBuffer
+{
+  DepthPixel* buffer;
+  QSize size;
+
+  DepthBuffer(QSize s) : size(s), buffer(nullptr)
+  {
+    buffer = new DepthPixel[size.width()*size.height()];
+  }
+  ~DepthBuffer() { delete[] buffer; }
+  void Clear()
+  {
+    for(int i=0; i<size.width()*size.height(); i++)
+    {
+      buffer[i].chain.clear();
+    }
+  }
+};
 
 class CPURenderer : public QObject
 {
   Q_OBJECT
 public:
-  CPURenderer();
+  CPURenderer(QSize s=QSize(640, 480));
+  ~CPURenderer();
 
 public slots:
-  void Transform(QVector3D trans);
-  void Rotate(QVector3D axis, double angle);
-  void PushMatrix();
-  void PopMatrix();
+  // world transformation
+  void WorldTranslate(QVector3D trans);
+  QVector3D WorldTranslation();
+  void WorldRotate(QVector3D axis, double angle);
+  QQuaternion WorldRotation();
+
+  // camera config
+  void CamTranslate(QVecotr3D trans);
+  QVector3D CamTranslation();
+  void CamRotate(QVector3D axis, double angle);
+  QQuaternion CamRotation();
+
+  // operations
   void Resize(QSize w);
   QSize Size();
-  uchar* RenderDaeScene(DaeModel* model);
+  Light* AddLight(Light light);
+  void RemoveLight(Light* light);
+
+  ColorPixel* Render();
 
 signals:
   void OutputColorFrame(uchar* frame);
@@ -81,14 +135,19 @@ signals:
 private:
   QSize size;
 
-  QVector<Camera3D> cameras;
-  QStack<Transform3D> transforms;
-  QVector<Light> lights;
+  Camera3D camera;
+  Transform3D transform;
+  QLinkedList<Light> lights;
 
+  QLinkedList<Geometry> geos;
+  ColorBuffer colorBuffer;
   DepthPixel* depthBuffer;
   uchar* stencilBuffer;
 
-  QVector2D VertexShader(QVector3D input);
+  void VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
+  void GeometryShader(Geometry& geo);
+  void Clip();
+  void FragmentShader(QVector2D pos, QVector2D texcoord);
 };
 
 #endif // CPURENDERER_H

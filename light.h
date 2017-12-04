@@ -28,6 +28,8 @@ class Light
 		QVector3D direction;
 		GLfloat angle2;
 		GLfloat strength;
+
+    bool able;
 };
 
 #endif // LIGHT_H
