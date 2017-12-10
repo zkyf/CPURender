@@ -9,6 +9,7 @@
 #include <QVector>
 #include <QVector3D>
 #include <QVector2D>
+#include <QtAlgorithms>
 #include "transform3d.h"
 #include "camera3d.h"
 #include "light.h"
@@ -28,9 +29,46 @@ struct Geometry
   QVector3D ambient;
   QVector3D diffuse;
   QVector3D specular;
+
+  float top;
+  float bottom;
+
+  float Top()
+  {
+    top = -1e20;
+    for(int i=0; i<vecs.size(); i++)
+    {
+      if(vecs[i].y()>top)
+      {
+        top=vecs[i].y();
+      }
+    }
+
+    return top;
+  }
+
+  float Bottom()
+  {
+    bottom = 1e20;
+    for(int i=0; i<vecs.size(); i++)
+    {
+      if(vecs[i].y()<bottom)
+      {
+        bottom=vecs[i].y();
+      }
+    }
+
+    return bottom;
+  }
+
+  bool operator>(Geometry& b) { return Top()>b.Top(); }
+  bool operator<(Geometry& b) { return Top()<b.Top(); }
+  bool operator>=(Geometry& b) { return Top()>=b.Top(); }
+  bool operator<=(Geometry& b) { return Top()<=b.Top(); }
+  bool operator==(Geometry& b) { return Top()==b.Top(); }
 };
 
-typedef QLinkedList<Geometry>::iterator GI;
+typedef QVector<Geometry>::iterator GI;
 
 struct ColorPixel
 {
@@ -46,7 +84,7 @@ struct ColorPixel
 struct ColorBuffer
 {
   QSize size;
-  ColorBuffer* buffer;
+  ColorPixel* buffer;
 
   ColorBuffer(QSize s) : size(s), buffer(nullptr)
   {
@@ -106,6 +144,16 @@ struct DepthBuffer
   }
 };
 
+struct ScanlinePoint : public QVector3D
+{
+  GI geo;
+  int hp;
+
+  bool operator<(ScanlinePoint& b) { return xp<b.xp; }
+};
+
+typedef QVector<ScanlinePoint> Scanline;
+
 class CPURenderer : public QObject
 {
   Q_OBJECT
@@ -121,7 +169,7 @@ public slots:
   QQuaternion WorldRotation();
 
   // camera config
-  void CamTranslate(QVecotr3D trans);
+  void CamTranslate(QVector3D trans);
   QVector3D CamTranslation();
   void CamRotate(QVector3D axis, double angle);
   QQuaternion CamRotation();
@@ -134,6 +182,10 @@ public slots:
 
   ColorPixel* Render();
 
+  int ToScreenY(float y);
+  int ToScreenX(float x);
+  int ToProjY(int y);
+  int ToProjX(int x);
 signals:
   void OutputColorFrame(uchar* frame);
 
@@ -147,9 +199,9 @@ private:
   Transform3D transform;
   QLinkedList<Light> lights;
 
-  QLinkedList<Geometry> geos;
+  QVector<Geometry> geos;
   ColorBuffer colorBuffer;
-  DepthPixel* depthBuffer;
+  DepthBuffer depthBuffer;
   uchar* stencilBuffer;
 
   void VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
