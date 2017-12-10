@@ -22,7 +22,6 @@
 struct Geometry
 {
   QVector<QVector3D> vecs;
-  QVector<QVector2D> pos;
   QVector<QVector3D> norms;
   QVector<QVector2D> texcoords;
 
@@ -75,11 +74,17 @@ struct DepthFragment
   float depth;
   float ratio;
   bool opaque;
+
+  bool operator>(const DepthFragment& b) { return depth>b.depth; }
+  bool operator>=(const DepthFragment& b) { return depth>=b.depth; }
+  bool operator<(const DepthFragment& b) { return depth<b.depth; }
+  bool operator<=(const DepthFragment& b) { return depth<=b.depth; }
+  bool operator==(const DepthFragment& b) { return depth==b.depth; }
 };
 
 struct DepthPixel
 {
-  QLinkedList<DepthFragment> chain;
+  QVector<DepthFragment> chain;
 };
 
 struct DepthBuffer
@@ -134,6 +139,9 @@ signals:
 
 private:
   QSize size;
+
+  float nearPlane;
+  float farPlane;
 
   Camera3D camera;
   Transform3D transform;

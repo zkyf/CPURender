@@ -63,6 +63,28 @@ ColorPixel* CPURenderer::RenderSimpleMesh(SimpleMesh *model)
 
   // post process & clipping
   {
+    for(GI i=geos.begin(); i!=geos.end(); i++)
+    {
+      Geometry ng;
+      ng.ambient=i->ambient;
+      ng.diffuse=i->diffuse;
+      ng.specular=i->specular;
+      bool dirt = false;
+      for(int j=0; j<i->vecs.size(); j++)
+      {
+        QVector3D p = i->vecs[j];
+        if(p.x()>=-1 && p.y()<=1 && p.z()<= farPlane && p.z()>=nearPlane)
+        {
+          ng.vecs.push_back(p);
+          ng.norms.push_back(i->norms[j]);
+          ng.texcoords.push_back(i->texcoords[j]);
+        }
+        else
+        {
+          dirt=true;
+        }
+      }
+    }
   }
 
   // fragment shader
