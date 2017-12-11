@@ -148,6 +148,7 @@ struct ScanlinePoint : public QVector3D
 {
   GI geo;
   int hp;
+  float dz;
 
   bool operator<(ScanlinePoint& b) { return xp<b.xp; }
 };

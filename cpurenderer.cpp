@@ -251,6 +251,7 @@ ColorPixel* CPURenderer::Render()
       qSort(s);
 
       QSet<GI> nowPoly;
+      int pid=0;
       for(int pid=0; pid<s.size(); pid++)
       {
         // fill depth buffer here;
