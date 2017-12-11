@@ -218,10 +218,10 @@ ColorPixel* CPURenderer::Render()
       if(i->top>top) top=i->top;
       if(i->bottom<bottom) bottom=i->bottom;
     }
-    int tt=(-top+1.0)*size.height()/2;
-    int bb=(bottom+1.0)*size.height()/2;
+    int tt=ToScreenY(top);
+    int bb=ToScreenY(bottom);
 
-    for(int y=0; y<size.height(); y++)
+    for(int y=tt; y<bb; y++)
     {
       float yy=ToProjY(y);
       Scanline s;
@@ -250,9 +250,19 @@ ColorPixel* CPURenderer::Render()
 
       qSort(s);
 
+      QSet<GI> nowPoly;
       for(int pid=0; pid<s.size(); pid++)
       {
         // fill depth buffer here;
+
+        if(s[pid].hp%2==0)
+        {
+          nowPoly.remove(s[pid].geo);
+        }
+        else
+        {
+          nowPoly.insert(s[pid].geo);
+        }
       }
     }
   }
