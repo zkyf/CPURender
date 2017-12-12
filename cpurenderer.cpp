@@ -264,6 +264,22 @@ ColorPixel* CPURenderer::Render()
         {
           nowPoly.insert(s[pid].geo);
         }
+
+        float nn;
+        if(pid<s.size()-1)
+        {
+          nn=s[pid].x();
+        }
+        else
+        {
+          nn=1.0;
+        }
+
+        float nowz=s[pid].z();
+        for(int xx=ToScreenX(s[pid].x()); ToProjX(xx)<nn; xx++)
+        {
+
+        }
       }
     }
   }

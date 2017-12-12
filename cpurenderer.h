@@ -32,6 +32,7 @@ struct Geometry
 
   float top;
   float bottom;
+  float dz;
 
   float Top()
   {
