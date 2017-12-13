@@ -80,6 +80,31 @@ struct ColorPixel
 
   ColorPixel(float rr=0, float gg=0, float bb=0, float aa=0) :
     r(rr), g(gg), b(bb), a(aa) {}
+
+  void Clamp()
+  {
+    if(r<0) r=0; if(r>1) r=1;
+    if(g<0) g=0; if(g>1) g=1;
+    if(b<0) b=0; if(b>1) b=1;
+    if(a<0) a=0; if(a>1) a=1;
+  }
+
+  ColorPixel operator+(ColorPixel& c)
+  {
+    float r1 = a/(a+c.a*(1-a));
+    float r2 = 1-r1;
+    return ColorPixel(
+          r*r1+c.r*r2,
+          g*r1+c.g*r2,
+          b*r1+c.b*r2,
+          a+c.a*(1-a));
+  }
+
+  ColorPixel operator+=(ColorPixel& c)
+  {
+    *this = *this+c;
+    return *this;
+  }
 };
 
 struct ColorBuffer
@@ -105,15 +130,31 @@ struct ColorBuffer
       buffer[i]=p;
     }
   }
+
+  uchar* ToUcharArray()
+  {
+    uchar* result = new ucahr[size.height()*size.width()];
+    memset(result, 0, sizeof(uchar)*size.width()*size.height()*3);
+    for(int i=0; i<size.width()*size.height(); i++)
+    {
+      int tr=i*3;
+      int tg=i*3+1;
+      int tb=i*3+2;
+      buffer[i].Clamp();
+      result[tr]=255*buffer[i].r;
+      result[tg]=255*buffer[i].g;
+      result[tb]=255*buffer[i].b;
+    }
+    return result;
+  }
 };
 
 struct DepthFragment
 {
   GI geo;
   ColorPixel color;
-  float depth;
-  float ratio;
-  bool opaque;
+  QVector3D normal;
+  QVector3D pos;
 
   bool operator>(const DepthFragment& b) { return depth>b.depth; }
   bool operator>=(const DepthFragment& b) { return depth>=b.depth; }
@@ -197,6 +238,7 @@ private:
 
   float nearPlane;
   float farPlane;
+  QMatrix4x4 projection;
 
   Camera3D camera;
   Transform3D transform;
@@ -209,7 +251,7 @@ private:
 
   void VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
   void GeometryShader(Geometry& geo);
-  void FragmentShader(int id);
+  void FragmentShader(DepthFragment& frag);
 };
 
 #endif // CPURENDERER_H

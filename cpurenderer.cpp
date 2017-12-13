@@ -18,26 +18,6 @@ CPURenderer::~CPURenderer()
 
 ColorPixel* CPURenderer::Render()
 {
-//  if(model==nullptr)
-//  {
-//    return colorBuffer;
-//  }
-
-//  geos.clear();
-
-//  for(SFI i=model->flib.begin(); i!=model->flib.end(); i++)
-//  {
-//    SimpleFace& face = model->flib[i];
-//    Geometry geo;
-//    for(SRI j=face.vlist.begin(); j!=face.vlist.end(); j++)
-//    {
-//      geo.vecs.push_back(j->v->p);
-//      geo.norms.push_back(j->n);
-//      geo.texcoords.push_back(j->tc);
-//    }
-//    geos.push_back(geo);
-//  }
-
   // vertex shader
   {
     for(GI i= geos.begin(); i!=geos.end(); i++)
@@ -281,8 +261,12 @@ ColorPixel* CPURenderer::Render()
         for(int xx=ToScreenX(s[pid].x()); ToProjX(xx)<nn; xx++)
         {
           DepthFragment ng;
+          ng.pos.setX(ToProjX(xx));
+          ng.pos.setY(y);
+          ng.pos.setZ(nowz);
           ng.geo=s[pid].geo;
-          ng.depth; // calculate deoth value of a fragment here
+          nowz+=ng.geo->dz;
+          // calculate deoth value of a fragment here
           depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
         }
       }
@@ -293,11 +277,50 @@ ColorPixel* CPURenderer::Render()
   {
     for(int i=0; i<size.width()*size.height(); i++)
     {
-      FragmentShader(i);
+      for(int j=0; j<depthBuffer.buffer[i].chain.size(); j++)
+      {
+        FragmentShader(depthBuffer.buffer[i].chain[j]);
+      }
     }
   }
 
   // per sample operations
   {
+    for(int i=0; i<size.width()*size.height(); i++)
+    {
+      qSort(depthBuffer.buffer[i].chain);
+      colorBuffer.buffer[i] = ColorPixel(0.0, 0.0, 0.0, 1.0);
+      for(int j=0; j<depthBuffer.buffer[i].chain.size(); j++)
+      {
+        colorBuffer.buffer[i] = colorBuffer.buffer[i]+depthBuffer.buffer[i].chain[j].color;
+        if(colorBuffer.buffer[i].a >=0.99) // not transparent
+        {
+          break;
+        }
+      }
+    }
   }
+
+  return colorBuffer.ToUcharArray();
+}
+
+void CPURenderer::VertexShader(QVector3D &p, QVector3D &n, QVector2D &tc)
+{
+  QVector4D pp(p, 1.0);
+  pp = projection * camera.toMatrix() * transform.toMatrix() * pp;
+  p.setX(pp.x());
+  p.setY(pp.y());
+  p.setZ(pp.z());
+
+  n = transform.rotation().toRotationMatrix()*n;
+}
+
+void CPURenderer::GeometryShader(Geometry &geo)
+{
+
+}
+
+void CPURenderer::FragmentShader(DepthFragment &frag)
+{
+  frag.color = ColorPixel(1.0, 1.0, 1.0, 1.0);
 }
