@@ -109,6 +109,7 @@ struct ColorBuffer
 
 struct DepthFragment
 {
+  GI geo;
   ColorPixel color;
   float depth;
   float ratio;
@@ -208,8 +209,7 @@ private:
 
   void VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
   void GeometryShader(Geometry& geo);
-  void Clip();
-  void FragmentShader(QVector2D pos, QVector2D texcoord);
+  void FragmentShader(int id);
 };
 
 #endif // CPURENDERER_H

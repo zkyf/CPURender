@@ -221,13 +221,14 @@ ColorPixel* CPURenderer::Render()
     int tt=ToScreenY(top);
     int bb=ToScreenY(bottom);
 
-    for(int y=tt; y<bb; y++)
+    for(int yy=tt; yy<bb; yy++)
     {
-      float yy=ToProjY(y);
+      float y=ToProjY(yy);
+      // generate a scanline
       Scanline s;
       for(GI i=geos.begin(); i!=geos.end(); i++)
       {
-        if(ToScreenY(i->top)<y || ToScreenY(i->bottom)>y)
+        if(ToScreenY(i->top)<yy || ToScreenY(i->bottom)>yy)
         {
           continue;
         }
@@ -236,10 +237,10 @@ ColorPixel* CPURenderer::Render()
         for(int j=0; j<i->vecs.size(); j++)
         {
           int next=(j+1)%i->vecs.size();
-          if((yy-i->vecs[j].y())*(i->vecs[next]-yy)<=0)
+          if((y-i->vecs[j].y())*(i->vecs[next]-y)<=0)
           {
             c++;
-            float r=(i->vecs[j].y()-yy)/(i->vecs[next].y()-i->vecs[j].y());
+            float r=(i->vecs[j].y()-y)/(i->vecs[next].y()-i->vecs[j].y());
             ScanlinePoint np(r*i->vecs[next]+(1-r)*i->vecs[j]);
 
             np.geo=i;
@@ -250,6 +251,7 @@ ColorPixel* CPURenderer::Render()
 
       qSort(s);
 
+      // fill depth values
       QSet<GI> nowPoly;
       int pid=0;
       for(int pid=0; pid<s.size(); pid++)
@@ -278,9 +280,20 @@ ColorPixel* CPURenderer::Render()
         float nowz=s[pid].z();
         for(int xx=ToScreenX(s[pid].x()); ToProjX(xx)<nn; xx++)
         {
-
+          DepthFragment ng;
+          ng.geo=s[pid].geo;
+          ng.depth; // calculate deoth value of a fragment here
+          depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
         }
       }
+    }
+  }
+
+  // fragment shader
+  {
+    for(int i=0; i<size.width()*size.height(); i++)
+    {
+      FragmentShader(i);
     }
   }
 
