@@ -2,6 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QGraphicsPixmapItem>
+
+#include "cpurenderer.h"
 
 namespace Ui {
 class MainWindow;
@@ -17,6 +20,8 @@ public:
 
 private:
   Ui::MainWindow *ui;
+
+  CPURenderer render;
 };
 
 #endif // MAINWINDOW_H

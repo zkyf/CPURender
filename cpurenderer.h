@@ -1,6 +1,7 @@
 #ifndef CPURENDERER_H
 #define CPURENDERER_H
 
+#include <QDebug>
 #include <QLinkedList>
 #include <QMatrix4x4>
 #include <QObject>
@@ -33,6 +34,7 @@ struct Geometry
   float top;
   float bottom;
   float dz;
+  float dy;
 
   float Top()
   {
@@ -62,11 +64,11 @@ struct Geometry
     return bottom;
   }
 
-  bool operator>(Geometry& b) { return Top()>b.Top(); }
-  bool operator<(Geometry& b) { return Top()<b.Top(); }
-  bool operator>=(Geometry& b) { return Top()>=b.Top(); }
-  bool operator<=(Geometry& b) { return Top()<=b.Top(); }
-  bool operator==(Geometry& b) { return Top()==b.Top(); }
+  friend bool operator> (const Geometry& a, const Geometry& b);
+  friend bool operator< (const Geometry& a, const Geometry& b);
+  friend bool operator>=(const Geometry& a, const Geometry& b);
+  friend bool operator<=(const Geometry& a, const Geometry& b);
+  friend bool operator==(const Geometry& a, const Geometry& b);
 };
 
 typedef QVector<Geometry>::iterator GI;
@@ -133,7 +135,7 @@ struct ColorBuffer
 
   uchar* ToUcharArray()
   {
-    uchar* result = new ucahr[size.height()*size.width()];
+    uchar* result = new uchar[size.height()*size.width()*3];
     memset(result, 0, sizeof(uchar)*size.width()*size.height()*3);
     for(int i=0; i<size.width()*size.height(); i++)
     {
@@ -156,11 +158,11 @@ struct DepthFragment
   QVector3D normal;
   QVector3D pos;
 
-  bool operator>(const DepthFragment& b) { return depth>b.depth; }
-  bool operator>=(const DepthFragment& b) { return depth>=b.depth; }
-  bool operator<(const DepthFragment& b) { return depth<b.depth; }
-  bool operator<=(const DepthFragment& b) { return depth<=b.depth; }
-  bool operator==(const DepthFragment& b) { return depth==b.depth; }
+  friend bool operator> (const DepthFragment& a, const DepthFragment& b);
+  friend bool operator>=(const DepthFragment& a, const DepthFragment& b);
+  friend bool operator< (const DepthFragment& a, const DepthFragment& b);
+  friend bool operator<=(const DepthFragment& a, const DepthFragment& b);
+  friend bool operator==(const DepthFragment& a, const DepthFragment& b);
 };
 
 struct DepthPixel
@@ -193,7 +195,7 @@ struct ScanlinePoint : public QVector3D
   int hp;
   float dz;
 
-  bool operator<(ScanlinePoint& b) { return xp<b.xp; }
+  ScanlinePoint(QVector3D p=QVector3D(0, 0, 0)):QVector3D(p) {}
 };
 
 typedef QVector<ScanlinePoint> Scanline;
@@ -219,17 +221,17 @@ public slots:
   QQuaternion CamRotation();
 
   // operations
+  void AddGeometry(const Geometry& geo);
   void Resize(QSize w);
   QSize Size();
-  Light* AddLight(Light light);
-  void RemoveLight(Light* light);
+  void AddLight(Light light);
 
-  ColorPixel* Render();
+  uchar* Render();
 
   int ToScreenY(float y);
   int ToScreenX(float x);
-  int ToProjY(int y);
-  int ToProjX(int x);
+  float ToProjY(int y);
+  float ToProjX(int x);
 signals:
   void OutputColorFrame(uchar* frame);
 
@@ -242,7 +244,7 @@ private:
 
   Camera3D camera;
   Transform3D transform;
-  QLinkedList<Light> lights;
+  QVector<Light> lights;
 
   QVector<Geometry> geos;
   ColorBuffer colorBuffer;
