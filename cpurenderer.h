@@ -16,6 +16,9 @@
 #include "light.h"
 #include "simplemesh.h"
 
+#include <opencv2/opencv.hpp>
+using namespace cv;
+
 #ifndef CGL_DEFINES
 #define CGL_DEFINES
 
@@ -34,7 +37,7 @@ struct Geometry
   float top;
   float bottom;
   float dz;
-  float dy;
+  QVector<float> dy;
 
   float Top()
   {
@@ -82,6 +85,10 @@ struct ColorPixel
 
   ColorPixel(float rr=0, float gg=0, float bb=0, float aa=0) :
     r(rr), g(gg), b(bb), a(aa) {}
+  ColorPixel(QVector3D c) { r=c.x(); g=c.y(); b=c.z(); a=1.0; }
+  ColorPixel operator=(const QVector3D& c) { r=c.x(); g=c.y(); b=c.z(); a=1.0; return *this; }
+  ColorPixel(QVector4D c) { r=c.x(); g=c.y(); b=c.z(); a=c.w(); }
+  ColorPixel operator=(const QVector4D& c) { r=c.x(); g=c.y(); b=c.z(); a=c.w(); return *this; }
 
   void Clamp()
   {

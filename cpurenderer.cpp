@@ -9,7 +9,13 @@ QVector3D operator*(const QMatrix3x3& m, const QVector3D& x)
       );
 }
 
-bool operator< (const ScanlinePoint& a, const ScanlinePoint& b) { return a.x()<b.x(); }
+bool operator< (const ScanlinePoint& a, const ScanlinePoint& b)
+{
+  if(a.geo!=b.geo)
+    return a.geo<b.geo;
+  else
+    return a.x()<b.x();
+}
 
 bool operator> (const DepthFragment& a, const DepthFragment& b) { return a.pos.z()> b.pos.z(); }
 bool operator>=(const DepthFragment& a, const DepthFragment& b) { return a.pos.z()>=b.pos.z(); }
@@ -129,7 +135,7 @@ uchar* CPURenderer::Render()
 
       QVector3D p = i->vecs[0];
       qDebug() << "#0 @" << p;
-      if(p.x()>=-1 && p.y()<=1 && p.z()<= farPlane && p.z()>=nearPlane)
+      if(p.x()>=-1 && p.x()<=1 && p.y()>=-1 && p.y()<=1 && p.z()<= farPlane && p.z()>=nearPlane)
       {
         ng.vecs.push_back(p);
         ng.norms.push_back(i->norms[0]);
@@ -146,7 +152,7 @@ uchar* CPURenderer::Render()
       for(int j=1; j<i->vecs.size(); j++)
       {
         QVector3D p = i->vecs[j];
-        if(p.x()>=-1 && p.y()<=1 && p.z()<= farPlane && p.z()>=nearPlane)
+        if(p.x()>=-1 && p.x()<=1 && p.y()>=-1 && p.y()<=1 && p.z()<= farPlane && p.z()>=nearPlane)
         {
           qDebug() << "this==true";
           ng.vecs.push_back(p);
@@ -255,6 +261,44 @@ uchar* CPURenderer::Render()
             }
 
             ng.vecs.push_back(t);
+            qDebug() << "add point for out-in point: " << t;
+          }
+          else
+          {
+            QVector3D l=i->vecs[j-1];
+            QVector3D t=p;
+            QVector<float> rlist;
+
+            // intersect with x=-1
+            if((l.x()+1)*(t.x()+1)<0)
+            {
+              rlist.push_back(1-(t.x()+1)/(t.x()-l.x()));
+            }
+            // intersect with x=1
+            if((l.x()-1)*(t.x()-1)<0)
+            {
+              rlist.push_back(1-(t.x()-1)/(t.x()-l.x()));
+            }
+            // intersect with y=-1
+            if((l.y()+1)*(t.y()+1)<0)
+            {
+              rlist.push_back(1-(t.y()+1)/(t.y()-l.y()));
+            }
+            // intersect with y=1
+            if((l.y()-1)*(t.y()-1)<0)
+            {
+              rlist.push_back(1-(t.y()-1)/(t.y()-l.y()));
+            }
+
+            if(rlist.size()>0)
+            {
+              qSort(rlist);
+              for(int i=0; i<rlist.size(); i++)
+              {
+                ng.vecs.push_back(rlist[i]*t+(1-rlist[i])*l);
+                qDebug() << "add point for cross false points: " << rlist[i]*t+(1-rlist[i])*l;
+              }
+            }
           }
           last=false;
         }
@@ -273,6 +317,26 @@ uchar* CPURenderer::Render()
       {
         qDebug() << "  vecs#" << j << ":" << geos[i].vecs[j];
       }
+    }
+
+    // calculate dz and dy
+    for(GI i=geos.begin(); i!=geos.end(); i++)
+    {
+      if(i->vecs.size()<3) continue;
+      QVector3D v0=i->vecs[0];
+      QVector3D v1=i->vecs[1];
+      QVector3D v2=i->vecs[2];
+      Mat A(2, 2, CV_32F, Scalar::all(0));
+      A.at<float>(0, 0)=v2.x()-v0.x();
+      A.at<float>(0, 1)=v2.y()-v0.y();
+      A.at<float>(1, 0)=v2.x()-v1.x();
+      A.at<float>(1, 1)=v2.y()-v1.y();
+      Mat b(2, 1, CV_32F, Scalar::all(0));
+      b.at<float>(0, 0)=v2.z()-v0.z();
+      b.at<float>(1, 0)=v2.z()-v1.z();
+      Mat dxy=A.inv()*b;
+
+      i->dz = dxy.at<float>(0, 0);
     }
     qDebug() << "post process & clipping ended";
   }
@@ -305,7 +369,7 @@ uchar* CPURenderer::Render()
     int bb=ToScreenY(bottom);
     qDebug() << "tt=" << tt << " bb=" << bb;
 
-    for(int yy=tt; yy<bb; yy++)
+    for(int yy=tt; yy<bb && yy<size.height(); yy++)
     {
       float y=ToProjY(yy);
       // generate a scanline
@@ -313,6 +377,7 @@ uchar* CPURenderer::Render()
       qDebug() << "generate scanline";
       for(GI i=geos.begin(); i!=geos.end(); i++)
       {
+        Scanline s4i;
 //        qDebug() << "  for geo@" << *i;
         qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
         if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
@@ -334,8 +399,18 @@ uchar* CPURenderer::Render()
 
             np.geo=i;
             np.hp=c;
-            s.push_back(np);
+            s4i.push_back(np);
           }
+        }
+
+        qSort(s4i);
+        int cc=1;
+        for(int j=0; j<s4i.size(); j++)
+        {
+          if(j>0 && fabs(s4i[j].x()-s4i[j-1].x())<1e-3) continue;
+          s4i[j].hp=cc;
+          cc++;
+          s.push_back(s4i[j]);
         }
       }
 
@@ -364,7 +439,7 @@ uchar* CPURenderer::Render()
         float nn;
         if(pid<s.size()-1)
         {
-          nn=s[pid].x();
+          nn=s[pid+1].x();
         }
         else
         {
@@ -374,15 +449,20 @@ uchar* CPURenderer::Render()
         float nowz=s[pid].z();
         for(int xx=ToScreenX(s[pid].x()); ToProjX(xx)<nn; xx++)
         {
+//          qDebug() << "xx=" << xx;
           for(QSet<GI>::iterator geoToDraw = nowPoly.begin(); geoToDraw!=nowPoly.end(); geoToDraw++)
           {
-            qDebug() << "depthfragment pushed @" << xx << ", " << yy;
+//            qDebug() << "depthfragment pushed @" << xx << ", " << yy;
             DepthFragment ng;
             ng.pos.setX(ToProjX(xx));
             ng.pos.setY(y);
             ng.pos.setZ(nowz);
             ng.geo=*geoToDraw;
-            nowz+=ng.geo->dz;
+            nowz+=ng.geo->dz/size.width()*2;
+            if(yy==size.height()/2)
+            {
+              qDebug() << "@mid : " << nowz << ng.geo->dz/size.width()*2;
+            }
             // calculate deoth value of a fragment here
             depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
           }
@@ -424,6 +504,15 @@ uchar* CPURenderer::Render()
         }
       }
     }
+
+    qDebug() << "center pixel:";
+    int xc = size.width()/2+10;
+    int yc = size.height()/2;
+    for(int j=0; j<depthBuffer.buffer[xc+yc*size.width()].chain.size(); j++)
+    {
+      qDebug() << "frag #" << j << ":" << depthBuffer.buffer[xc+yc*size.width()].chain[j].pos << depthBuffer.buffer[xc+yc*size.width()].chain[j].color;
+    }
+
     qDebug() << "per sample operation ended";
   }
 
@@ -434,9 +523,9 @@ void CPURenderer::VertexShader(QVector3D &p, QVector3D &n, QVector2D &tc)
 {
   QVector4D pp(p, 1.0);
   pp = projection * camera.toMatrix() * transform.toMatrix() * pp;
-  p.setX(pp.x());
-  p.setY(pp.y());
-  p.setZ(pp.z());
+  p.setX(pp.x()/pp.w());
+  p.setY(pp.y()/pp.w());
+  p.setZ(pp.z()/pp.w());
 
   n = transform.rotation().toRotationMatrix()*n;
 }
@@ -448,7 +537,8 @@ void CPURenderer::GeometryShader(Geometry &geo)
 
 void CPURenderer::FragmentShader(DepthFragment &frag)
 {
-  frag.color = ColorPixel(1.0, 1.0, 1.0, 1.0);
+  GI geo = frag.geo;
+  frag.color = geo->ambient;
 }
 
 void CPURenderer::AddGeometry(const Geometry &geo)

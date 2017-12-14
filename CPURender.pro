@@ -38,3 +38,7 @@ HEADERS  += mainwindow.h \
     simplemesh.h
 
 FORMS    += mainwindow.ui
+
+# opencv
+INCLUDEPATH += "C:/Libs/OpenCV31/opencv/build/include"
+LIBS += "C:/Libs/OpenCV31/opencv/build/x64/vc14/lib/opencv_world310.lib"
