@@ -329,7 +329,7 @@ uchar* CPURenderer::Render()
           if((y-i->vecs[j].y())*(i->vecs[next].y()-y)>=0)
           {
             c++;
-            float r=(i->vecs[j].y()-y)/(i->vecs[next].y()-i->vecs[j].y());
+            float r=(i->vecs[j].y()-y)/(i->vecs[j].y()-i->vecs[next].y());
             ScanlinePoint np(r*i->vecs[next]+(1-r)*i->vecs[j]);
 
             np.geo=i;
