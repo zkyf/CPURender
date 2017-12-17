@@ -24,22 +24,32 @@ using namespace cv;
 
 #endif
 
+class CPURenderer;
+
 struct VertexInfo
 {
-  QVector3D pos;
-  QVector3D projpos;
-  QVector3D norm;
-  QVector3D transformed_pos;
-  QVector2D texcoords;
+  friend class CPURenderer;
+  friend class Geometry;
+  friend QDebug& operator<<(QDebug& s, const Geometry& g);
+public:
+  QVector3D p;
+  QVector3D n;
+  QVector2D tc;
+
+private:
+  QVector3D tp;
+  QVector3D pp;
+
+public:
+  VertexInfo() {}
+  VertexInfo(QVector3D _p, QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0)) : p(_p), n(_n), tc(_tc) {}
 };
 
 struct Geometry
 {
   QString name;
-  QVector<QVector3D> pos;
-  QVector<QVector3D> vecs;
-  QVector<QVector3D> norms;
-  QVector<QVector2D> texcoords;
+
+  QVector<VertexInfo> vecs;
 
   QVector3D ambient;
   QVector3D diffuse;
@@ -55,9 +65,9 @@ struct Geometry
     top = -1e20;
     for(int i=0; i<vecs.size(); i++)
     {
-      if(vecs[i].y()>top)
+      if(vecs[i].pp.y()>top)
       {
-        top=vecs[i].y();
+        top=vecs[i].pp.y();
       }
     }
 
@@ -69,9 +79,9 @@ struct Geometry
     bottom = 1e20;
     for(int i=0; i<vecs.size(); i++)
     {
-      if(vecs[i].y()<bottom)
+      if(vecs[i].pp.y()<bottom)
       {
-        bottom=vecs[i].y();
+        bottom=vecs[i].pp.y();
       }
     }
 
@@ -284,7 +294,7 @@ private:
   DepthBuffer depthBuffer;
   uchar* stencilBuffer;
 
-  QVector3D VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
+  VertexInfo VertexShader(VertexInfo v);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
 };

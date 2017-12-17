@@ -77,37 +77,23 @@ void MainWindow::on_Render_clicked()
 
   Geometry geo1;
   geo1.name="Triangle";
-  geo1.pos.push_back(QVector3D(-0.5, -1.5, -1));
-  geo1.pos.push_back(QVector3D(-0.5, 1.5, -1));
-  geo1.pos.push_back(QVector3D(0.5, 0, -2));
-
-  geo1.norms.push_back(QVector3D(-0.5, 0, -1));
-  geo1.norms.push_back(QVector3D(0, 0.5, -1));
-  geo1.norms.push_back(QVector3D(0.5, 0, -1));
-
-  geo1.texcoords.push_back(QVector2D(-0.5, 0));
-  geo1.texcoords.push_back(QVector2D(0, 0.5));
-  geo1.texcoords.push_back(QVector2D(0.5, 0));
+  {
+    VertexInfo v1; v1.p=QVector3D(-0.5, -1.5, -1); geo1.vecs.push_back(v1);
+    VertexInfo v2; v2.p=QVector3D(-0.5,  1.5, -1); geo1.vecs.push_back(v2);
+    VertexInfo v3; v3.p=QVector3D( 0.5,  0.0, -2); geo1.vecs.push_back(v3);
+  }
 
   geo1.ambient = QVector3D(1.0, 0.0, 0.0);
   render.AddGeometry(geo1);
 
   Geometry geo2;
   geo2.name="Rect";
-  geo2.pos.push_back(QVector3D(0.5, 0.5, -1.5));
-  geo2.pos.push_back(QVector3D(-0.5, 0.5, -1.5));
-  geo2.pos.push_back(QVector3D(-0.5, -0.5, -1.5));
-  geo2.pos.push_back(QVector3D(0.5, -0.5, -1.5));
-
-  geo2.norms.push_back(QVector3D(-0.5, 0, -1));
-  geo2.norms.push_back(QVector3D(0, 0.5, -1));
-  geo2.norms.push_back(QVector3D(0.5, 0, -1));
-  geo2.norms.push_back(QVector3D(0.5, 0, -1));
-
-  geo2.texcoords.push_back(QVector2D(-0.5, 0));
-  geo2.texcoords.push_back(QVector2D(0, 0.5));
-  geo2.texcoords.push_back(QVector2D(0.5, 0));
-  geo2.texcoords.push_back(QVector2D(0.5, 0));
+  {
+    VertexInfo v1; v1.p=QVector3D( 0.5,  0.5, -1.5); geo2.vecs.push_back(v1);
+    VertexInfo v2; v2.p=QVector3D(-0.5,  0.5, -1.5); geo2.vecs.push_back(v2);
+    VertexInfo v3; v3.p=QVector3D(-0.5, -0.5, -1.5); geo2.vecs.push_back(v3);
+    VertexInfo v4; v4.p=QVector3D( 0.5, -0.5, -1.5); geo2.vecs.push_back(v4);
+  }
 
   geo2.ambient = QVector3D(0.0, 1.0, 0.0);
   render.AddGeometry(geo2);
