@@ -24,8 +24,19 @@ using namespace cv;
 
 #endif
 
+struct VertexInfo
+{
+  QVector3D pos;
+  QVector3D projpos;
+  QVector3D norm;
+  QVector3D transformed_pos;
+  QVector2D texcoords;
+};
+
 struct Geometry
 {
+  QString name;
+  QVector<QVector3D> pos;
   QVector<QVector3D> vecs;
   QVector<QVector3D> norms;
   QVector<QVector2D> texcoords;
@@ -130,8 +141,9 @@ struct ColorBuffer
   {
     size = s;
     delete[] buffer;
-    buffer = new ColorPixel[size.width(), size.height()];
+    buffer = new ColorPixel[size.width()*size.height()];
   }
+
   void Clear(ColorPixel p = ColorPixel())
   {
     for(int i=0; i<size.width()*size.height(); i++)
@@ -194,13 +206,26 @@ struct DepthBuffer
       buffer[i].chain.clear();
     }
   }
+
+  void Resize(QSize s)
+  {
+    for(int i=0; i<size.width()*size.height(); i++)
+    {
+      buffer[i].chain.clear();
+    }
+    size = s;
+    delete[] buffer;
+    buffer = new DepthPixel[s.width()*s.height()];
+  }
 };
 
 struct ScanlinePoint : public QVector3D
 {
   GI geo;
   int hp;
-  float dz;
+  int prev;
+  int next;
+  float dx;
 
   ScanlinePoint(QVector3D p=QVector3D(0, 0, 0)):QVector3D(p) {}
 };
@@ -254,11 +279,12 @@ private:
   QVector<Light> lights;
 
   QVector<Geometry> geos;
+  QVector<Geometry> input;
   ColorBuffer colorBuffer;
   DepthBuffer depthBuffer;
   uchar* stencilBuffer;
 
-  void VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
+  QVector3D VertexShader(QVector3D& p, QVector3D& n, QVector2D& tc);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
 };

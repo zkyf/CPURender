@@ -28,14 +28,16 @@ SOURCES += main.cpp\
     cpurenderer.cpp \
     camera3d.cpp \
     light.cpp \
-    transform3d.cpp
+    transform3d.cpp \
+    qgraphicsviewwithmouseevent.cpp
 
 HEADERS  += mainwindow.h \
     cpurenderer.h \
     camera3d.h \
     light.h \
     transform3d.h \
-    simplemesh.h
+    simplemesh.h \
+    qgraphicsviewwithmouseevent.h
 
 FORMS    += mainwindow.ui
 

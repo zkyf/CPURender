@@ -6,27 +6,60 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>937</width>
-    <height>581</height>
+    <width>408</width>
+    <height>290</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <widget class="QGraphicsView" name="graphicsView">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>20</y>
-      <width>901</width>
-      <height>551</height>
-     </rect>
-    </property>
-   </widget>
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <widget class="QGroupBox" name="groupBox">
+      <property name="title">
+       <string>Graphics View</string>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QGraphicsViewWithMouseEvent" name="graphicsView"/>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="groupBox_2">
+      <property name="title">
+       <string>Commands</string>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <item>
+        <widget class="QPushButton" name="Render">
+         <property name="text">
+          <string>Render</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>QGraphicsViewWithMouseEvent</class>
+   <extends>QGraphicsView</extends>
+   <header location="global">qgraphicsviewwithmouseevent.h</header>
+   <slots>
+    <signal>KeyPressEvent(QKeyEvent*)</signal>
+    <signal>KeyReleaseEvent(QKeyEvent*)</signal>
+    <slot>keyPressEvent(QKeyEvent*)</slot>
+    <slot>keyReleaseEvent(QKeyEvent*)</slot>
+   </slots>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
