@@ -73,7 +73,8 @@ CPURenderer::CPURenderer(QSize s) :
 
   projection.lookAt(camera.translation(), camera.translation()+camera.forward(), camera.up());
   qDebug() << "projection" << projection;
-  projection.perspective(60, 1.0, 0.1, 100.0);
+//  projection.perspective(60, 1.0, 0.1, 100.0);
+  projection.ortho(-1, 1, -1, 1, 0, 100);
   qDebug() << "projection" << projection;
   nearPlane=0.1;
   farPlane = 100.0;
@@ -404,20 +405,10 @@ uchar* CPURenderer::Render()
           qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
           if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
           {
-            if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-5)
+            if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
             {
               continue;
             }
-
-//            if(fabs(i->vecs[j].pp.y()-y)<=1e-5)
-//            {
-//              if((i->vecs[prev].pp.y()-y)*(i->vecs[next].pp.y()-y)<0)
-//              {
-//                qDebug() << "hp ignored @" << j << " @" << i->vecs[j].pp;
-//                qDebug() << "prev=" << prev << " , next=" << next;
-//                continue;
-//              }
-//            }
 
             c++;
             float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
@@ -445,9 +436,15 @@ uchar* CPURenderer::Render()
         for(int j=0; j<s4i.size(); j++)
         {
           s4i[j].hp=cc;
-          if(j>0 && fabs(s4i[j].x()-s4i[j-1].x())<1e-3)
+          if(j<s4i.size()-1 && j>0 && (fabs(s4i[j].x()-s4i[j+1].x())<1e-3 || fabs(s4i[j].x()-s4i[j-1].x())<1e-3))
           {
-            continue;
+            if(cc%2==0)
+            {
+              if(j<s4i.size()-1)
+              {
+                continue;
+              }
+            }
           }
           s.push_back(s4i[j]);
           cc++;
