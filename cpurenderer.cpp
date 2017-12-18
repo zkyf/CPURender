@@ -29,6 +29,14 @@ bool operator>=(const Geometry& a, const Geometry& b) { return a.top>=b.top; }
 bool operator<=(const Geometry& a, const Geometry& b) { return a.top<=b.top; }
 bool operator==(const Geometry& a, const Geometry& b) { return a.top==b.top; }
 
+bool operator< (const EdgeListItem& a, const EdgeListItem& b)
+{
+  if(a.geo->vecs[a.tid].pp.y()!=b.geo->vecs[b.tid].pp.y())
+    return a.geo->vecs[a.tid].pp.y()<b.geo->vecs[b.tid].pp.y();
+  else
+    return a.geo->vecs[a.bid].pp.y()<b.geo->vecs[b.bid].pp.y();
+}
+
 QDebug& operator<<(QDebug& s, const Geometry& g)
 {
   s << "Geometry @ " << g.vecs.size() << endl;

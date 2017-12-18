@@ -247,6 +247,13 @@ struct DepthBuffer
   }
 };
 
+struct EdgeListItem
+{
+  GI geo;
+  int tid; // id of top vertex;
+  int bid; // id of bottom vertex;
+};
+
 struct ScanlinePoint : public QVector3D
 {
   GI geo;
