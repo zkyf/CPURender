@@ -539,7 +539,7 @@ uchar* CPURenderer::Render()
     {
 //      //qDebug() << "pixel @ (" << i%size.width() << ", " << i/size.height() << ")" << "=" << colorBuffer.buffer[i];
       qSort(depthBuffer.buffer[i].chain);
-      colorBuffer.buffer[i] = ColorPixel(0.0, 0.0, 0.0, 0.0);
+      colorBuffer.buffer[i] = ColorPixel(1.0, 1.0, 1.0, 0.0);
       for(int j=0; j<depthBuffer.buffer[i].chain.size(); j++)
       {
         colorBuffer.buffer[i] = colorBuffer.buffer[i]+depthBuffer.buffer[i].chain[j].color;
@@ -548,6 +548,7 @@ uchar* CPURenderer::Render()
           break;
         }
       }
+      colorBuffer.buffer[i] = colorBuffer.buffer[i]+ColorPixel(1.0, 1.0, 1.0, 1.0);
     }
 
     //qDebug() << "center pixel:";

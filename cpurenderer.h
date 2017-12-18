@@ -51,9 +51,9 @@ struct Geometry
 
   QVector<VertexInfo> vecs;
 
-  QVector3D ambient;
-  QVector3D diffuse;
-  QVector3D specular;
+  QVector4D ambient;
+  QVector4D diffuse;
+  QVector4D specular;
 
   float top;
   float bottom;
