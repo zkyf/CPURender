@@ -8,7 +8,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->setupUi(this);
   render.Resize(ui->graphicsView->size());
   Light light;
-  light.SetPointLight(QVector3D(-1, -1, -1));
+  light.SetPointLight(QVector3D(0, 0, 0));
   render.AddLight(light);
 }
 
@@ -78,27 +78,38 @@ void MainWindow::on_Render_clicked()
   Geometry geo1;
   geo1.name="Triangle";
   {
-    VertexInfo v1; v1.p=QVector3D(-0.5, -1.5, 0.05); geo1.vecs.push_back(v1);
-    VertexInfo v2; v2.p=QVector3D(-0.5,  1.5, 0.05); geo1.vecs.push_back(v2);
-    VertexInfo v3; v3.p=QVector3D( 0.5,  0.0, -2.0); geo1.vecs.push_back(v3);
+    VertexInfo v1; v1.p=QVector3D(-0.5, -1.5, -1.0);
+    VertexInfo v2; v2.p=QVector3D(-0.5,  1.5, -1.0);
+    VertexInfo v3; v3.p=QVector3D( 0.5,  0.0, -2.0);
+
+    geo1.vecs.push_back(v2);
+    geo1.vecs.push_back(v1);
+    geo1.vecs.push_back(v3);
 
     geo1.SetNormal();
   }
-  geo1.ambient = QVector4D(1.0, 0.0, 0.0, 0.5);
-  qDebug() << "before: " << geo1;
+  geo1.ambient = QVector4D(1.0, 0.0, 0.0, 1.0);
+  geo1.specular = QVector3D(1.0, 1.0, 1.0);
+//  qDebug() << "before: " << geo1;
   render.AddGeometry(geo1);
 
   Geometry geo2;
   geo2.name="Rect";
   {
-    VertexInfo v1; v1.p=QVector3D( 0.5, -0.5, -1.5); geo2.vecs.push_back(v1);
-    VertexInfo v2; v2.p=QVector3D(-0.5, -0.5, -1.5); geo2.vecs.push_back(v2);
-    VertexInfo v3; v3.p=QVector3D(-0.5,  0.5, -1.5); geo2.vecs.push_back(v3);
-    VertexInfo v4; v4.p=QVector3D( 0.5,  0.5, -1.5); geo2.vecs.push_back(v4);
+    VertexInfo v1; v1.p=QVector3D( 0.5, -0.5, -1.5);
+    VertexInfo v2; v2.p=QVector3D(-0.5, -0.5, -1.5);
+    VertexInfo v3; v3.p=QVector3D(-0.5,  0.5, -1.5);
+    VertexInfo v4; v4.p=QVector3D( 0.5,  0.5, -1.5);
+
+    geo2.vecs.push_back(v2);
+    geo2.vecs.push_back(v1);
+    geo2.vecs.push_back(v4);
+    geo2.vecs.push_back(v3);
 
     geo2.SetNormal();
   }
-  geo2.ambient = QVector4D(0.0, 1.0, 0.0, 0.5);
+  geo2.ambient = QVector4D(0.0, 1.0, 0.0, 1.0);
+  geo2.specular = QVector3D(1.0, 1.0, 1.0);
   render.AddGeometry(geo2);
 
   NewFrame();

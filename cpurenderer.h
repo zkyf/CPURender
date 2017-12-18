@@ -25,94 +25,8 @@ using namespace cv;
 #endif
 
 class CPURenderer;
-
-struct VertexInfo
-{
-  friend class CPURenderer;
-  friend class Geometry;
-  friend QDebug& operator<<(QDebug& s, const Geometry& g);
-public:
-  QVector3D p;
-  QVector3D n;
-  QVector2D tc;
-
-private:
-  QVector3D tp;
-  QVector3D pp;
-
-public:
-  VertexInfo() {}
-  VertexInfo(QVector3D _p, QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0)) : p(_p), n(_n), tc(_tc) {}
-};
-
-struct Geometry
-{
-  QString name;
-
-  QVector<VertexInfo> vecs;
-
-  QVector4D ambient;
-  QVector4D diffuse;
-  QVector4D specular;
-
-  float top;
-  float bottom;
-  float dz;
-  QVector<float> dy;
-
-  float Top()
-  {
-    top = -1e20;
-    for(int i=0; i<vecs.size(); i++)
-    {
-      if(vecs[i].pp.y()>top)
-      {
-        top=vecs[i].pp.y();
-      }
-    }
-
-    return top;
-  }
-
-  float Bottom()
-  {
-    bottom = 1e20;
-    for(int i=0; i<vecs.size(); i++)
-    {
-      if(vecs[i].pp.y()<bottom)
-      {
-        bottom=vecs[i].pp.y();
-      }
-    }
-
-    return bottom;
-  }
-
-  void SetNormal()
-  {
-    qDebug() << "vecs.size=" << vecs.size();
-    if(vecs.size()>=3)
-    {
-      QVector3D v0=vecs[0].p;
-      QVector3D v1=vecs[1].p;
-      QVector3D v2=vecs[2].p;
-      qDebug() << "v0=" << v0 << "v1=" << v1 << "v2=" << v2;
-      QVector3D n=QVector3D::crossProduct(v2-v1, v0-v1).normalized();
-      for(int i=0; i<vecs.size(); i++)
-      {
-        vecs[i].n=n;
-      }
-    }
-  }
-
-  friend bool operator> (const Geometry& a, const Geometry& b);
-  friend bool operator< (const Geometry& a, const Geometry& b);
-  friend bool operator>=(const Geometry& a, const Geometry& b);
-  friend bool operator<=(const Geometry& a, const Geometry& b);
-  friend bool operator==(const Geometry& a, const Geometry& b);
-};
-
-typedef QVector<Geometry>::iterator GI;
+class EdgeListItem;
+class ColorPixel;
 
 struct ColorPixel
 {
@@ -152,7 +66,101 @@ struct ColorPixel
     *this = *this+c;
     return *this;
   }
+
+  ColorPixel operator*(const float& c)
+  {
+    return ColorPixel(r*c, g*c, b*c, a);
+  }
 };
+
+struct VertexInfo
+{
+  friend class CPURenderer;
+  friend class Geometry;
+  friend QDebug& operator<<(QDebug& s, const Geometry& g);
+  friend bool operator<(const EdgeListItem& a, const EdgeListItem& b);
+public:
+  QVector3D p;
+  QVector3D n;
+  QVector2D tc;
+
+private:
+  QVector3D tp;
+  QVector3D pp;
+
+public:
+  VertexInfo() {}
+  VertexInfo(QVector3D _p, QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0)) : p(_p), n(_n), tc(_tc) {}
+};
+
+struct Geometry
+{
+  QString name;
+
+  QVector<VertexInfo> vecs;
+
+  ColorPixel ambient;
+  ColorPixel diffuse;
+  ColorPixel specular;
+
+  float top;
+  float bottom;
+  float dz;
+  QVector<float> dy;
+
+  float Top()
+  {
+    top = -1e20;
+    for(int i=0; i<vecs.size(); i++)
+    {
+      if(vecs[i].pp.y()>top)
+      {
+        top=vecs[i].pp.y();
+      }
+    }
+
+    return top;
+  }
+
+  float Bottom()
+  {
+    bottom = 1e20;
+    for(int i=0; i<vecs.size(); i++)
+    {
+      if(vecs[i].pp.y()<bottom)
+      {
+        bottom=vecs[i].pp.y();
+      }
+    }
+
+    return bottom;
+  }
+
+  void SetNormal()
+  {
+//    qDebug() << "vecs.size=" << vecs.size();
+    if(vecs.size()>=3)
+    {
+      QVector3D v0=vecs[0].p;
+      QVector3D v1=vecs[1].p;
+      QVector3D v2=vecs[2].p;
+//      qDebug() << "v0=" << v0 << "v1=" << v1 << "v2=" << v2;
+      QVector3D n=QVector3D::crossProduct(v2-v1, v0-v1).normalized();
+      for(int i=0; i<vecs.size(); i++)
+      {
+        vecs[i].n=n;
+      }
+    }
+  }
+
+  friend bool operator> (const Geometry& a, const Geometry& b);
+  friend bool operator< (const Geometry& a, const Geometry& b);
+  friend bool operator>=(const Geometry& a, const Geometry& b);
+  friend bool operator<=(const Geometry& a, const Geometry& b);
+  friend bool operator==(const Geometry& a, const Geometry& b);
+};
+
+typedef QVector<Geometry>::iterator GI;
 
 struct ColorBuffer
 {

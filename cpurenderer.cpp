@@ -42,7 +42,7 @@ QDebug& operator<<(QDebug& s, const Geometry& g)
   s << "Geometry @ " << g.vecs.size() << endl;
   for(int i=0; i<g.vecs.size(); i++)
   {
-    s << "  vecs #" << i << ":" << g.vecs[i].pp << g.vecs[i].n << endl;
+    s << "  vecs #" << i << ":" << g.vecs[i].p  << g.vecs[i].pp << g.vecs[i].n << g.vecs[i].tp << endl;
   }
   return s;
 }
@@ -105,15 +105,28 @@ uchar* CPURenderer::Render()
     //qDebug() << "vertex shader";
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
-//      //qDebug() << "before:" << *i;
+      qDebug() << "before:" << *i;
       for(int vi=0; vi<i->vecs.size(); vi++)
       {
         i->vecs[vi]=VertexShader(i->vecs[vi]);
       }
 
-      //qDebug() << "after:" << *i;
+      qDebug() << "after:" << *i;
     }
     //qDebug() << "vertex shader ended";
+  }
+
+  {
+    for(int i=0; i<lights.size(); i++)
+    {
+      if(lights[i].type==Light::Point)
+      {
+        VertexInfo light(lights[i].pos);
+        light=VertexShader(light);
+        lights[i].tp=light.tp;
+        qDebug() << "light #" << i << " @ " << lights[i].tp;
+      }
+    }
   }
 
   // geometry shader
@@ -542,21 +555,25 @@ uchar* CPURenderer::Render()
 
   // per sample operations
   {
-    //qDebug() << "per sample operation";
+    qDebug() << "per sample operation";
     for(int i=0; i<size.width()*size.height(); i++)
     {
-//      //qDebug() << "pixel @ (" << i%size.width() << ", " << i/size.height() << ")" << "=" << colorBuffer.buffer[i];
       qSort(depthBuffer.buffer[i].chain);
       colorBuffer.buffer[i] = ColorPixel(1.0, 1.0, 1.0, 0.0);
       for(int j=0; j<depthBuffer.buffer[i].chain.size(); j++)
       {
         colorBuffer.buffer[i] = colorBuffer.buffer[i]+depthBuffer.buffer[i].chain[j].color;
+        if(i/size.width()==size.height()/2)
+        {
+//          qDebug() << "depthBuffer @ (" << i%size.width() << ", " << i/size.height() << ")[" << j << "]=" << depthBuffer.buffer[i].chain[j].color;
+        }
         if(colorBuffer.buffer[i].a >=0.99) // not transparent
         {
           break;
         }
       }
-      colorBuffer.buffer[i] = colorBuffer.buffer[i]+ColorPixel(1.0, 1.0, 1.0, 1.0);
+//      colorBuffer.buffer[i] = colorBuffer.buffer[i]+ColorPixel(1.0, 1.0, 1.0, 0.0);
+//      qDebug() << "colorBuffer @ (" << i%size.width() << ", " << i/size.height() << ")=" << colorBuffer.buffer[i] << depthBuffer.buffer[i].chain.size();
     }
 
     //qDebug() << "center pixel:";
@@ -581,6 +598,10 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
   pp = projection * camera.toMatrix() * transform.toMatrix() * pp;
   if(fabs(pp.w())<1e-3) pp.setW(1e-2);
 
+  QVector4D tp(v.p, 1.0);
+  tp = camera.toMatrix() * transform.toMatrix() * tp;
+  v.tp.setX(tp.x()); v.tp.setY(tp.y()); v.tp.setZ(tp.z());
+
   VertexInfo nv=v;
   nv.n = transform.rotation().toRotationMatrix()*nv.n;
   nv.pp.setX(pp.x()/pp.w());
@@ -597,7 +618,21 @@ void CPURenderer::GeometryShader(Geometry &geo)
 void CPURenderer::FragmentShader(DepthFragment &frag)
 {
   GI geo = frag.geo;
-  frag.color = geo->ambient;
+//  frag.color = geo->ambient;
+  for(int i=0; i<lights.size(); i++)
+  {
+    QVector3D lightDir = (lights[i].tp-frag.tp).normalized();
+    QVector3D viewDir = (-frag.tp).normalized();
+    QVector3D h = ((viewDir+lightDir)/2).normalized();
+    ColorPixel a = geo->ambient*0.2;
+    float ss = pow(QVector3D::dotProduct(h, frag.normal), 16)*0.8;
+    if(ss<0) ss=1.0;
+    ColorPixel s = geo->specular*ss;
+    frag.color.r = a.r+s.r;
+    frag.color.g = a.g+s.g;
+    frag.color.b = a.b+s.b;
+    frag.color.a = a.a+s.a;
+  }
 }
 
 void CPURenderer::AddGeometry(const Geometry &geo)

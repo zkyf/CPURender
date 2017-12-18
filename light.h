@@ -26,6 +26,7 @@ class Light
 		QVector3D pos;
 		QVector3D color;
 		QVector3D direction;
+    QVector3D tp;
 		GLfloat angle2;
 		GLfloat strength;
 
