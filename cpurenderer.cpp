@@ -34,7 +34,7 @@ QDebug& operator<<(QDebug& s, const Geometry& g)
   s << "Geometry @ " << g.vecs.size() << endl;
   for(int i=0; i<g.vecs.size(); i++)
   {
-    s << "  vecs #" << i << ":" << g.vecs[i].pp << endl;
+    s << "  vecs #" << i << ":" << g.vecs[i].pp << g.vecs[i].n << endl;
   }
   return s;
 }
@@ -72,10 +72,10 @@ CPURenderer::CPURenderer(QSize s) :
   memset(stencilBuffer, 0, sizeof(uchar)*bufferCount);
 
   projection.lookAt(camera.translation(), camera.translation()+camera.forward(), camera.up());
-  qDebug() << "projection" << projection;
+  //qDebug() << "projection" << projection;
 //  projection.perspective(60, 1.0, 0.1, 100.0);
   projection.ortho(-1, 1, -1, 1, 0, 100);
-  qDebug() << "projection" << projection;
+  //qDebug() << "projection" << projection;
   nearPlane=0.1;
   farPlane = 100.0;
 }
@@ -90,42 +90,43 @@ uchar* CPURenderer::Render()
   colorBuffer.Clear();
   depthBuffer.Clear();
 
-  qDebug() << "CPURenderer Start";
+  //qDebug() << "CPURenderer Start";
   // vertex shader
   {
     geos = input;
-    qDebug() << "vertex shader";
+    //qDebug() << "vertex shader";
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
+//      //qDebug() << "before:" << *i;
       for(int vi=0; vi<i->vecs.size(); vi++)
       {
         i->vecs[vi]=VertexShader(i->vecs[vi]);
       }
 
-      qDebug() << "after:" << *i;
+      //qDebug() << "after:" << *i;
     }
-    qDebug() << "vertex shader ended";
+    //qDebug() << "vertex shader ended";
   }
 
   // geometry shader
 //  {
-//    qDebug() << "geometry shader";
+//    //qDebug() << "geometry shader";
 //    int geosNum = geos.size();
 //    int count = 0;
 //    for(GI i= geos.begin(); count<geosNum; i++)
 //    {
 //      GeometryShader(*i);
 //    }
-//    qDebug() << "geometry shader ended";
+//    //qDebug() << "geometry shader ended";
 //  }
 
   // post process & clipping
   {
-    qDebug() << "post process & clipping";
-    qDebug() << "farPlane=" << farPlane << ", nearPlane=" << nearPlane;
+    //qDebug() << "post process & clipping";
+    //qDebug() << "farPlane=" << farPlane << ", nearPlane=" << nearPlane;
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
-      qDebug() << "now processing: " << *i;
+      //qDebug() << "now processing: " << *i;
       Geometry ng;
       ng.ambient=i->ambient;
       ng.diffuse=i->diffuse;
@@ -134,7 +135,7 @@ uchar* CPURenderer::Render()
       bool last = false; // true=in, false=out
 
       QVector3D p = i->vecs[0].pp;
-      qDebug() << "#0 @" << p;
+      //qDebug() << "#0 @" << p;
       if(p.x()>=-1 && p.x()<=1 && p.y()>=-1 && p.y()<=1 && p.z()<= 1 && p.z()>=-1)
       {
         last = true;
@@ -144,7 +145,7 @@ uchar* CPURenderer::Render()
         dirt=true;
         last = false;
       }
-      qDebug() << "# 0 :" << dirt << last;
+      //qDebug() << "# 0 :" << dirt << last;
 
       for(int jj=0; jj<i->vecs.size(); jj++)
       {
@@ -152,11 +153,11 @@ uchar* CPURenderer::Render()
         QVector3D p = i->vecs[j].pp;
         if(p.x()>=-1 && p.x()<=1 && p.y()>=-1 && p.y()<=1 && p.z()<= 1 && p.z()>=-1)
         {
-          qDebug() << "this==true";
+          //qDebug() << "this==true";
 
           if(last==false)
           {
-            qDebug() << "last==false";
+            //qDebug() << "last==false";
             QVector3D l=i->vecs[(j-1+i->vecs.size())%i->vecs.size()].pp;
             QVector3D t=p;
 
@@ -199,7 +200,7 @@ uchar* CPURenderer::Render()
               l.setZ(1);
             }
 
-            qDebug() << "result l=" << l;
+            //qDebug() << "result l=" << l;
             ng.vecs.push_back(l);
           }
 
@@ -208,11 +209,11 @@ uchar* CPURenderer::Render()
         }
         else
         {
-          qDebug() << "this==false";
+          //qDebug() << "this==false";
           dirt=true;
           if(last==true)
           {
-            qDebug() << "last==true";
+            //qDebug() << "last==true";
             QVector3D l=i->vecs[(j-1+i->vecs.size())%i->vecs.size()].pp;
             QVector3D t=p;
 
@@ -256,7 +257,7 @@ uchar* CPURenderer::Render()
             }
 
             ng.vecs.push_back(t);
-            qDebug() << "add point for out-in point: " << t;
+            //qDebug() << "add point for out-in point: " << t;
           }
           else
           {
@@ -294,15 +295,13 @@ uchar* CPURenderer::Render()
                 if(toAdd.x()>=-1-1e-3 && toAdd.x()<=1+1e-3 && toAdd.y()>=-1-1e-3 && toAdd.y()<=1+1e-3 && toAdd.z()>=-1-1e-3 && toAdd.z()<=1+1e-3)
                 {
                   ng.vecs.push_back(toAdd);
-                  qDebug() << "add point for cross false points: " << toAdd;
+                  //qDebug() << "add point for cross false points: " << toAdd;
                 }
                 else
                 {
-                  qDebug() << "ignore point for cross false points: " << toAdd;
+                  //qDebug() << "ignore point for cross false points: " << toAdd;
                   bool c1=toAdd.x()>=-1, c2=toAdd.x()<=1, c3=toAdd.y()>=-1, c4=toAdd.y()<=1, c5=toAdd.z()>=-1, c6=toAdd.z()<=1;
-                  qDebug() << "toAdd.x()>=-1:" << c1 << "toAdd.x()<=1:" << c2
-                      << "toAdd.y()>=-1:" << c3 << "toAdd.y()<=1:" << c4
-                      << "toAdd.z()>=-1:" << c5 << "toAdd.z()<=1:" << c6;
+                  //qDebug() << "toAdd.x()>=-1:" << c1 << "toAdd.x()<=1:" << c2 << "toAdd.y()>=-1:" << c3 << "toAdd.y()<=1:" << c4 << "toAdd.z()>=-1:" << c5 << "toAdd.z()<=1:" << c6;
                 }
               }
             }
@@ -319,13 +318,13 @@ uchar* CPURenderer::Render()
 
     for(int i=0; i<geos.size(); i++)
     {
-      qDebug() << "after: geos#" << i;
+      //qDebug() << "after: geos#" << i;
       for(int j=0; j<geos[i].vecs.size(); j++)
       {
-        qDebug() << "  vecs#" << j << ":" << geos[i].vecs[j].pp;
+        //qDebug() << "  vecs#" << j << ":" << geos[i].vecs[j].pp;
       }
     }
-    qDebug() << "post process & clipping ended";
+    //qDebug() << "post process & clipping ended";
   }
 
   // calculate dz and dy
@@ -346,13 +345,13 @@ uchar* CPURenderer::Render()
     Mat dxy=A.inv()*b;
 
     i->dz = dxy.at<float>(0, 0);
-    qDebug() << "geo " << *i;
-    qDebug() << "dz=" << i->dz;
+    //qDebug() << "geo " << *i;
+    //qDebug() << "dz=" << i->dz;
   }
 
   // rasterization
   {
-    qDebug() << "rasterization";
+    //qDebug() << "rasterization";
 
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
@@ -360,12 +359,12 @@ uchar* CPURenderer::Render()
     }
     qSort(geos);
 
-    qDebug() << "geos sorted";
+    //qDebug() << "geos sorted";
 
     float top=-1e20, bottom=1e20;
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
-      qDebug() << *i;
+      //qDebug() << *i;
       if(i->vecs.size()<3)
       {
         continue;
@@ -378,31 +377,31 @@ uchar* CPURenderer::Render()
     if(tt<0) tt=0; if(tt>=size.height()) tt=size.height()-1;
     int bb=ToScreenY(bottom);
     if(bb<0) bb=0; if(bb>=size.height()) bb=size.height()-1;
-    qDebug() << "tt=" << tt << " bb=" << bb;
+    //qDebug() << "tt=" << tt << " bb=" << bb;
 
     for(int yy=tt; yy<bb && yy<size.height(); yy++)
     {
       float y=ToProjY(yy);
       // generate a scanline
       Scanline s;
-      qDebug() << "generate scanline";
+      //qDebug() << "generate scanline";
       for(GI i=geos.begin(); i!=geos.end(); i++)
       {
         Scanline s4i;
-//        qDebug() << "  for geo@" << *i;
-        qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
+//        //qDebug() << "  for geo@" << *i;
+        //qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
         if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
         {
           continue;
         }
 
         int c=0;
-        qDebug() << "finding hp";
+        //qDebug() << "finding hp";
         for(int j=0; j<i->vecs.size(); j++)
         {
           int next=(j+1)%i->vecs.size();
           int prev=(j-1+i->vecs.size())%i->vecs.size();
-          qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
+          //qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
           if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
           {
             if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
@@ -414,6 +413,8 @@ uchar* CPURenderer::Render()
             float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
             ScanlinePoint np(r*i->vecs[next].pp+(1-r)*i->vecs[j].pp);
 
+            np.tp=r*i->vecs[next].tp+(1-r)*i->vecs[j].tp;
+            np.n=r*i->vecs[next].n+(1-r)*i->vecs[j].n;
             np.geo=i;
             np.hp=c;
 
@@ -453,16 +454,16 @@ uchar* CPURenderer::Render()
 
       qSort(s);
 
-      qDebug() << "sl @yy=" << yy << " y=" << y << ":" << s;
+      //qDebug() << "sl @yy=" << yy << " y=" << y << ":" << s;
 
       // fill depth values
-      qDebug() << "fill depth values";
+      //qDebug() << "fill depth values";
       QSet<GI> nowPoly;
       for(int pid=0; pid<s.size(); pid++)
       {
         // fill depth buffer here;
 
-        qDebug() << "hp #" << pid;
+        //qDebug() << "hp #" << pid;
 
         if(s[pid].hp%2==1)
         {
@@ -491,20 +492,22 @@ uchar* CPURenderer::Render()
           nowz+=s[pid].geo->dz/size.width()*2*(-xx);
           xx=0;
         }
-//            qDebug() << "depthfragment pushed @" << xx << ", " << yy;
+//            //qDebug() << "depthfragment pushed @" << xx << ", " << yy;
         for(; ToProjX(xx)<nn && xx<size.width(); xx++)
         {
-//          qDebug() << "xx=" << xx;
+//          //qDebug() << "xx=" << xx;
           DepthFragment ng;
           ng.pos.setX(ToProjX(xx));
           ng.pos.setY(y);
-//          nowz=(s[pid+1].z()-s[pid].z())/(s[pid+1].x()-s[pid].x())*(ng.pos.x()-s[pid].x())+s[pid].z();
+          float r=(ng.pos.x()-s[pid].x())/(s[pid+1].x()-s[pid].x());
 //          if(yy=size.height()/2)
 //          {
-//            qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
+//            //qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
 //          }
           ng.pos.setZ(nowz);
           ng.geo=s[pid].geo;
+          ng.tp=r*s[pid+1].tp+(1-r)*s[pid].tp;
+          ng.normal=r*s[pid+1].n+(1-r)*s[pid].n;
           nowz+=ng.geo->dz/size.width()*2;
           // calculate deoth value of a fragment here
           depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
@@ -512,29 +515,29 @@ uchar* CPURenderer::Render()
       }
     }
 
-    qDebug() << "rasterization ended";
+    //qDebug() << "rasterization ended";
   }
 
   // fragment shader
   {
-    qDebug() << "fragment shader";
+    //qDebug() << "fragment shader";
     for(int i=0; i<size.width()*size.height(); i++)
     {
       for(int j=0; j<depthBuffer.buffer[i].chain.size(); j++)
       {
         FragmentShader(depthBuffer.buffer[i].chain[j]);
-//        qDebug() << "color @" << i << "=" << depthBuffer.buffer[i].chain[j].color;
+//        //qDebug() << "color @" << i << "=" << depthBuffer.buffer[i].chain[j].color;
       }
     }
-    qDebug() << "fragment shader ended";
+    //qDebug() << "fragment shader ended";
   }
 
   // per sample operations
   {
-    qDebug() << "per sample operation";
+    //qDebug() << "per sample operation";
     for(int i=0; i<size.width()*size.height(); i++)
     {
-//      qDebug() << "pixel @ (" << i%size.width() << ", " << i/size.height() << ")" << "=" << colorBuffer.buffer[i];
+//      //qDebug() << "pixel @ (" << i%size.width() << ", " << i/size.height() << ")" << "=" << colorBuffer.buffer[i];
       qSort(depthBuffer.buffer[i].chain);
       colorBuffer.buffer[i] = ColorPixel(0.0, 0.0, 0.0, 0.0);
       for(int j=0; j<depthBuffer.buffer[i].chain.size(); j++)
@@ -547,15 +550,15 @@ uchar* CPURenderer::Render()
       }
     }
 
-    qDebug() << "center pixel:";
+    //qDebug() << "center pixel:";
     int xc = size.width()/2+10;
     int yc = size.height()/2;
     for(int j=0; j<depthBuffer.buffer[xc+yc*size.width()].chain.size(); j++)
     {
-      qDebug() << "frag #" << j << ":" << depthBuffer.buffer[xc+yc*size.width()].chain[j].pos << depthBuffer.buffer[xc+yc*size.width()].chain[j].color;
+      //qDebug() << "frag #" << j << ":" << depthBuffer.buffer[xc+yc*size.width()].chain[j].pos << depthBuffer.buffer[xc+yc*size.width()].chain[j].color;
     }
 
-    qDebug() << "per sample operation ended";
+    //qDebug() << "per sample operation ended";
   }
 
   uchar* result = colorBuffer.ToUcharArray();
@@ -586,11 +589,6 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 {
   GI geo = frag.geo;
   frag.color = geo->ambient;
-
-  for(int i=0; i<lights.size(); i++)
-  {
-
-  }
 }
 
 void CPURenderer::AddGeometry(const Geometry &geo)

@@ -88,6 +88,23 @@ struct Geometry
     return bottom;
   }
 
+  void SetNormal()
+  {
+    qDebug() << "vecs.size=" << vecs.size();
+    if(vecs.size()>=3)
+    {
+      QVector3D v0=vecs[0].p;
+      QVector3D v1=vecs[1].p;
+      QVector3D v2=vecs[2].p;
+      qDebug() << "v0=" << v0 << "v1=" << v1 << "v2=" << v2;
+      QVector3D n=QVector3D::crossProduct(v2-v1, v0-v1).normalized();
+      for(int i=0; i<vecs.size(); i++)
+      {
+        vecs[i].n=n;
+      }
+    }
+  }
+
   friend bool operator> (const Geometry& a, const Geometry& b);
   friend bool operator< (const Geometry& a, const Geometry& b);
   friend bool operator>=(const Geometry& a, const Geometry& b);
@@ -186,6 +203,7 @@ struct DepthFragment
   ColorPixel color;
   QVector3D normal;
   QVector3D pos;
+  QVector3D tp;
 
   friend bool operator> (const DepthFragment& a, const DepthFragment& b);
   friend bool operator>=(const DepthFragment& a, const DepthFragment& b);
@@ -236,6 +254,9 @@ struct ScanlinePoint : public QVector3D
   int prev;
   int next;
   float dx;
+  QVector3D n;
+  QVector3D tp;
+  QVector2D tc;
 
   ScanlinePoint(QVector3D p=QVector3D(0, 0, 0)):QVector3D(p) {}
 };
