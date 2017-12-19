@@ -721,6 +721,7 @@ void CPURenderer::Clip(QVector4D A, bool dir)
 {
   for(GI i=geos.begin(); i!=geos.end(); i++)
   {
-    bool lastStatus;
+    if(i->vecs.size()<3) continue;
+    bool lastStatus = (QVector3D::dotProduct(A, i->vecs[i->vecs.size()-1].pp)<0) ^ dir;
   }
 }
