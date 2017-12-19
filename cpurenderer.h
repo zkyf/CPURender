@@ -108,6 +108,14 @@ struct Geometry
   float dz;
   QVector<float> dy;
 
+  void AddPoints(QVector<QVector3D> vs)
+  {
+    for(int i=0; i<vs.size(); i++)
+    {
+      vecs.push_back(VertexInfo(vs[i]));
+    }
+  }
+
   float Top()
   {
     top = -1e20;
@@ -333,7 +341,7 @@ private:
   VertexInfo VertexShader(VertexInfo v);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
-  void Clip(float a, float b, float c, float d, bool dir);
+  void Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i);
 };
 
 #endif // CPURENDERER_H

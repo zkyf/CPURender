@@ -39,7 +39,7 @@ bool operator< (const EdgeListItem& a, const EdgeListItem& b)
 
 QDebug& operator<<(QDebug& s, const Geometry& g)
 {
-  s << "Geometry @ " << g.vecs.size() << endl;
+  s << "Geometry " << g.name << " @ " << g.vecs.size() << endl;
   for(int i=0; i<g.vecs.size(); i++)
   {
     s << "  vecs #" << i << ":" << g.vecs[i].p  << g.vecs[i].pp << g.vecs[i].n << g.vecs[i].tp << endl;
@@ -81,8 +81,8 @@ CPURenderer::CPURenderer(QSize s) :
 
   projection.lookAt(camera.translation(), camera.translation()+camera.forward(), camera.up());
   //qDebug() << "projection" << projection;
-//  projection.perspective(60, 1.0, 0.1, 100.0);
-  projection.ortho(-1, 1, -1, 1, 0, 100);
+  projection.perspective(60, 1.0, 0.1, 100.0);
+//  projection.ortho(-1, 1, -1, 1, 0, 100);
   //qDebug() << "projection" << projection;
   nearPlane=0.1;
   farPlane = 100.0;
@@ -116,6 +116,7 @@ uchar* CPURenderer::Render()
     //qDebug() << "vertex shader ended";
   }
 
+  // light transform
   {
     for(int i=0; i<lights.size(); i++)
     {
@@ -126,6 +127,35 @@ uchar* CPURenderer::Render()
         lights[i].tp=light.tp;
         qDebug() << "light #" << i << " @ " << lights[i].tp;
       }
+    }
+  }
+
+  // pre-clipping
+  {
+    for(GI i=geos.begin(); i!=geos.end(); i++)
+    {
+      qDebug() << "pre-clipping z<0";
+      QVector<QVector3D> vecs;
+      for(int v=0; v<i->vecs.size(); v++)
+      {
+        vecs.push_back(i->vecs[v].tp);
+      }
+      Clip(QVector4D(0, 0, 1, 0), false, vecs, i);
+      qDebug() << "after: " << *i;
+    }
+  }
+
+  // re-vertex-shader
+  {
+    for(GI i=geos.begin(); i!=geos.end(); i++)
+    {
+      qDebug() << "re-vertex-shader before:" << *i;
+      for(int vi=0; vi<i->vecs.size(); vi++)
+      {
+        i->vecs[vi]=VertexShader(i->vecs[vi]);
+      }
+
+      qDebug() << "re-vertex-shader after:" << *i;
     }
   }
 
@@ -141,211 +171,74 @@ uchar* CPURenderer::Render()
 //    //qDebug() << "geometry shader ended";
 //  }
 
-  // post process & clipping
   {
-    //qDebug() << "post process & clipping";
-    //qDebug() << "farPlane=" << farPlane << ", nearPlane=" << nearPlane;
+    qDebug() << "new clipping";
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
-      //qDebug() << "now processing: " << *i;
-      Geometry ng;
-      ng.ambient=i->ambient;
-      ng.diffuse=i->diffuse;
-      ng.specular=i->specular;
-      bool dirt = false;
-      bool last = false; // true=in, false=out
+      qDebug() << "before: " << *i;
 
-      QVector3D p = i->vecs[0].pp;
-      //qDebug() << "#0 @" << p;
-      if(p.x()>=-1 && p.x()<=1 && p.y()>=-1 && p.y()<=1 && p.z()<= 1 && p.z()>=-1)
       {
-        last = true;
-      }
-      else
-      {
-        dirt=true;
-        last = false;
-      }
-      //qDebug() << "# 0 :" << dirt << last;
-
-      for(int jj=0; jj<i->vecs.size(); jj++)
-      {
-        int j=(jj+1)%i->vecs.size();
-        QVector3D p = i->vecs[j].pp;
-        if(p.x()>=-1 && p.x()<=1 && p.y()>=-1 && p.y()<=1 && p.z()<= 1 && p.z()>=-1)
+        qDebug() << "x>-1";
+        QVector<QVector3D> vecs;
+        for(int v=0; v<i->vecs.size(); v++)
         {
-          //qDebug() << "this==true";
-
-          if(last==false)
-          {
-            //qDebug() << "last==false";
-            QVector3D l=i->vecs[(j-1+i->vecs.size())%i->vecs.size()].pp;
-            QVector3D t=p;
-
-            if(l.x()<-1)
-            {
-              l.setY(fabs((-1-t.x()))/fabs((l.x()-t.x()))*l.y()+fabs((l.x()+1))/fabs((l.x()-t.x()))*t.y());
-              l.setZ(fabs((-1-t.x()))/fabs((l.x()-t.x()))*l.z()+fabs((l.x()+1))/fabs((l.x()-t.x()))*t.z());
-              l.setX(-1);
-            }
-            if(l.x()>1)
-            {
-              l.setY(fabs((1-t.x()))/fabs((l.x()-t.x()))*l.y()+fabs((l.x()-1))/fabs((l.x()-t.x()))*t.y());
-              l.setZ(fabs((1-t.x()))/fabs((l.x()-t.x()))*l.z()+fabs((l.x()-1))/fabs((l.x()-t.x()))*t.z());
-              l.setX(1);
-            }
-
-            if(l.y()<-1)
-            {
-              l.setX(fabs((-1-t.y()))/fabs((l.y()-t.y()))*l.x()+fabs((l.y()+1))/fabs((l.y()-t.y()))*t.x());
-              l.setZ(fabs((-1-t.y()))/fabs((l.y()-t.y()))*l.z()+fabs((l.y()+1))/fabs((l.y()-t.y()))*t.z());
-              l.setY(-1);
-            }
-            if(l.y()>1)
-            {
-              l.setX(fabs((1-t.y()))/fabs((l.y()-t.y()))*l.x()+fabs((l.y()-1))/fabs((l.y()-t.y()))*t.x());
-              l.setZ(fabs((1-t.y()))/fabs((l.y()-t.y()))*l.z()+fabs((l.y()-1))/fabs((l.y()-t.y()))*t.z());
-              l.setY(1);
-            }
-
-            if(l.z()<-1)
-            {
-              l.setX(fabs((-1-t.z()))/fabs((l.z()-t.z()))*l.x()+fabs((l.z()-(-1)))/fabs((l.z()-t.z()))*t.x());
-              l.setY(fabs((-1-t.z()))/fabs((l.z()-t.z()))*l.y()+fabs((l.z()-(-1)))/fabs((l.z()-t.z()))*t.y());
-              l.setZ(-1);
-            }
-            if(l.z()>1)
-            {
-              l.setX(fabs((1-t.z()))/fabs((l.z()-t.z()))*l.x()+fabs((l.z()-1))/fabs((l.z()-t.z()))*t.x());
-              l.setY(fabs((1-t.z()))/fabs((l.z()-t.z()))*l.y()+fabs((l.z()-1))/fabs((l.z()-t.z()))*t.y());
-              l.setZ(1);
-            }
-
-            //qDebug() << "result l=" << l;
-            ng.vecs.push_back(l);
-          }
-
-          ng.vecs.push_back(VertexInfo(p, i->vecs[j].n, i->vecs[j].tc));
-          last=true;
+          vecs.push_back(i->vecs[v].pp);
         }
-        else
+        Clip(QVector4D(1, 0, 0, 1), true, vecs, i);
+      }
+
+      {
+        qDebug() << "x<1";
+        QVector<QVector3D> vecs;
+        for(int v=0; v<i->vecs.size(); v++)
         {
-          //qDebug() << "this==false";
-          dirt=true;
-          if(last==true)
-          {
-            //qDebug() << "last==true";
-            QVector3D l=i->vecs[(j-1+i->vecs.size())%i->vecs.size()].pp;
-            QVector3D t=p;
-
-            if(t.x()<-1)
-            {
-              t.setY(fabs((-1-t.x()))/fabs((l.x()-t.x()))*l.y()+fabs((l.x()+1))/fabs((l.x()-t.x()))*t.y());
-              t.setZ(fabs((-1-t.x()))/fabs((l.x()-t.x()))*l.z()+fabs((l.x()+1))/fabs((l.x()-t.x()))*t.z());
-              t.setX(-1);
-            }
-            if(t.x()>1)
-            {
-              t.setY(fabs((1-t.x()))/fabs((l.x()-t.x()))*l.y()+fabs((l.x()-1))/fabs((l.x()-t.x()))*t.y());
-              t.setZ(fabs((1-t.x()))/fabs((l.x()-t.x()))*l.z()+fabs((l.x()-1))/fabs((l.x()-t.x()))*t.z());
-              t.setX(1);
-            }
-
-            if(t.y()<-1)
-            {
-              t.setX(fabs((-1-t.y()))/fabs((l.y()-t.y()))*l.x()+fabs((l.y()+1))/fabs((l.y()-t.y()))*t.x());
-              t.setZ(fabs((-1-t.y()))/fabs((l.y()-t.y()))*l.z()+fabs((l.y()+1))/fabs((l.y()-t.y()))*t.z());
-              t.setY(-1);
-            }
-            if(t.y()>1)
-            {
-              t.setX(fabs((1-t.y()))/fabs((l.y()-t.y()))*l.x()+fabs((l.y()-1))/fabs((l.y()-t.y()))*t.x());
-              t.setZ(fabs((1-t.y()))/fabs((l.y()-t.y()))*l.z()+fabs((l.y()-1))/fabs((l.y()-t.y()))*t.z());
-              t.setY(1);
-            }
-
-            if(t.z()<-1)
-            {
-              t.setX(fabs((-1-t.z()))/fabs((l.z()-t.z()))*l.x()+fabs((l.z()-(-1)))/fabs((l.z()-t.z()))*t.x());
-              t.setY(fabs((-1-t.z()))/fabs((l.z()-t.z()))*l.y()+fabs((l.z()-(-1)))/fabs((l.z()-t.z()))*t.y());
-              t.setZ(-1);
-            }
-            if(t.z()>1)
-            {
-              t.setX(fabs((1-t.z()))/fabs((l.z()-t.z()))*l.x()+fabs((l.z()-1))/fabs((l.z()-t.z()))*t.x());
-              t.setY(fabs((1-t.z()))/fabs((l.z()-t.z()))*l.y()+fabs((l.z()-1))/fabs((l.z()-t.z()))*t.y());
-              t.setZ(1);
-            }
-
-            ng.vecs.push_back(t);
-            //qDebug() << "add point for out-in point: " << t;
-          }
-          else
-          {
-            QVector3D l=i->vecs[(j-1+i->vecs.size())%i->vecs.size()].pp;
-            QVector3D t=p;
-            QVector<float> rlist;
-
-            // intersect with x=-1
-            if((l.x()+1)*(t.x()+1)<0)
-            {
-              rlist.push_back(1-(t.x()+1)/(t.x()-l.x()));
-            }
-            // intersect with x=1
-            if((l.x()-1)*(t.x()-1)<0)
-            {
-              rlist.push_back(1-(t.x()-1)/(t.x()-l.x()));
-            }
-            // intersect with y=-1
-            if((l.y()+1)*(t.y()+1)<0)
-            {
-              rlist.push_back(1-(t.y()+1)/(t.y()-l.y()));
-            }
-            // intersect with y=1
-            if((l.y()-1)*(t.y()-1)<0)
-            {
-              rlist.push_back(1-(t.y()-1)/(t.y()-l.y()));
-            }
-
-            if(rlist.size()>0)
-            {
-              qSort(rlist);
-              for(int i=0; i<rlist.size(); i++)
-              {
-                QVector3D toAdd = rlist[i]*t+(1-rlist[i])*l;
-                if(toAdd.x()>=-1-1e-3 && toAdd.x()<=1+1e-3 && toAdd.y()>=-1-1e-3 && toAdd.y()<=1+1e-3 && toAdd.z()>=-1-1e-3 && toAdd.z()<=1+1e-3)
-                {
-                  ng.vecs.push_back(toAdd);
-                  //qDebug() << "add point for cross false points: " << toAdd;
-                }
-                else
-                {
-                  //qDebug() << "ignore point for cross false points: " << toAdd;
-                  bool c1=toAdd.x()>=-1, c2=toAdd.x()<=1, c3=toAdd.y()>=-1, c4=toAdd.y()<=1, c5=toAdd.z()>=-1, c6=toAdd.z()<=1;
-                  //qDebug() << "toAdd.x()>=-1:" << c1 << "toAdd.x()<=1:" << c2 << "toAdd.y()>=-1:" << c3 << "toAdd.y()<=1:" << c4 << "toAdd.z()>=-1:" << c5 << "toAdd.z()<=1:" << c6;
-                }
-              }
-            }
-          }
-          last=false;
+          vecs.push_back(i->vecs[v].pp);
         }
+        Clip(QVector4D(-1, 0, 0, 1), true, vecs, i);
       }
 
-      if(dirt)
       {
-//        *i=ng;
+        qDebug() << "y>-1";
+        QVector<QVector3D> vecs;
+        for(int v=0; v<i->vecs.size(); v++)
+        {
+          vecs.push_back(i->vecs[v].pp);
+        }
+        Clip(QVector4D(0, 1, 0, 1), true, vecs, i);
       }
-    }
 
-    for(int i=0; i<geos.size(); i++)
-    {
-      //qDebug() << "after: geos#" << i;
-      for(int j=0; j<geos[i].vecs.size(); j++)
       {
-        //qDebug() << "  vecs#" << j << ":" << geos[i].vecs[j].pp;
+        qDebug() << "y<1";
+        QVector<QVector3D> vecs;
+        for(int v=0; v<i->vecs.size(); v++)
+        {
+          vecs.push_back(i->vecs[v].pp);
+        }
+        Clip(QVector4D(0, -1, 0, 1), true, vecs, i);
       }
+
+      {
+        qDebug() << "z>-1";
+        QVector<QVector3D> vecs;
+        for(int v=0; v<i->vecs.size(); v++)
+        {
+          vecs.push_back(i->vecs[v].pp);
+        }
+        Clip(QVector4D(0, 0, 1, 1), true, vecs, i);
+      }
+
+      {
+        qDebug() << "z<1";
+        QVector<QVector3D> vecs;
+        for(int v=0; v<i->vecs.size(); v++)
+        {
+          vecs.push_back(i->vecs[v].pp);
+        }
+        Clip(QVector4D(0, 0, -1, 1), true, vecs, i);
+      }
+
+      qDebug() << "after: " << *i;
     }
-    //qDebug() << "post process & clipping ended";
   }
 
   // calculate dz and dy
@@ -368,6 +261,33 @@ uchar* CPURenderer::Render()
     i->dz = dxy.at<float>(0, 0);
     //qDebug() << "geo " << *i;
     //qDebug() << "dz=" << i->dz;
+  }
+
+  // generate edge list
+  QVector<EdgeListItem> edgeList;
+  int nowe;
+  {
+    for(GI i=geos.begin(); i!=geos.end(); i++)
+    {
+      for(int v=0; v<i->vecs.size(); v++)
+      {
+        EdgeListItem item;
+        item.geo=i;
+        int next=(v+1)%i->vecs.size();
+        if(i->vecs[v].pp.y()>i->vecs[next].pp.y())
+        {
+          item.tid=v; item.bid=next;
+        }
+        else
+        {
+          item.tid=next; item.bid=v;
+        }
+        edgeList.push_back(item);
+      }
+    }
+
+    qSort(edgeList);
+    nowe=edgeList.size()-1;
   }
 
   // rasterization
@@ -403,73 +323,76 @@ uchar* CPURenderer::Render()
     for(int yy=tt; yy<bb && yy<size.height(); yy++)
     {
       float y=ToProjY(yy);
+
       // generate a scanline
       Scanline s;
-      //qDebug() << "generate scanline";
-      for(GI i=geos.begin(); i!=geos.end(); i++)
       {
-        Scanline s4i;
-//        //qDebug() << "  for geo@" << *i;
-        //qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
-        if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
+        //qDebug() << "generate scanline";
+        for(GI i=geos.begin(); i!=geos.end(); i++)
         {
-          continue;
-        }
-
-        int c=0;
-        //qDebug() << "finding hp";
-        for(int j=0; j<i->vecs.size(); j++)
-        {
-          int next=(j+1)%i->vecs.size();
-          int prev=(j-1+i->vecs.size())%i->vecs.size();
-          //qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
-          if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
+          Scanline s4i;
+    //        //qDebug() << "  for geo@" << *i;
+          //qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
+          if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
           {
-            if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
-            {
-              continue;
-            }
-
-            c++;
-            float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
-            ScanlinePoint np(r*i->vecs[next].pp+(1-r)*i->vecs[j].pp);
-
-            np.tp=r*i->vecs[next].tp+(1-r)*i->vecs[j].tp;
-            np.n=r*i->vecs[next].n+(1-r)*i->vecs[j].n;
-            np.geo=i;
-            np.hp=c;
-
-            if(i->vecs[j].pp.x()<=i->vecs[next].pp.x())
-            {
-              np.prev=j;
-              np.next=next;
-            }
-            else
-            {
-              np.prev=next;
-              np.next=j;
-            }
-            s4i.push_back(np);
+            continue;
           }
-        }
 
-        qSort(s4i);
-        int cc=1;
-        for(int j=0; j<s4i.size(); j++)
-        {
-          s4i[j].hp=cc;
-          if(j<s4i.size()-1 && j>0 && (fabs(s4i[j].x()-s4i[j+1].x())<1e-3 || fabs(s4i[j].x()-s4i[j-1].x())<1e-3))
+          int c=0;
+          //qDebug() << "finding hp";
+          for(int j=0; j<i->vecs.size(); j++)
           {
-            if(cc%2==0)
+            int next=(j+1)%i->vecs.size();
+            int prev=(j-1+i->vecs.size())%i->vecs.size();
+            //qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
+            if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
             {
-              if(j<s4i.size()-1)
+              if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
               {
                 continue;
               }
+
+              c++;
+              float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
+              ScanlinePoint np(r*i->vecs[next].pp+(1-r)*i->vecs[j].pp);
+
+              np.tp=r*i->vecs[next].tp+(1-r)*i->vecs[j].tp;
+              np.n=r*i->vecs[next].n+(1-r)*i->vecs[j].n;
+              np.geo=i;
+              np.hp=c;
+
+              if(i->vecs[j].pp.x()<=i->vecs[next].pp.x())
+              {
+                np.prev=j;
+                np.next=next;
+              }
+              else
+              {
+                np.prev=next;
+                np.next=j;
+              }
+              s4i.push_back(np);
             }
           }
-          s.push_back(s4i[j]);
-          cc++;
+
+          qSort(s4i);
+          int cc=1;
+          for(int j=0; j<s4i.size(); j++)
+          {
+            s4i[j].hp=cc;
+            if(j<s4i.size()-1 && j>0 && (fabs(s4i[j].x()-s4i[j+1].x())<1e-3 || fabs(s4i[j].x()-s4i[j-1].x())<1e-3))
+            {
+              if(cc%2==0)
+              {
+                if(j<s4i.size()-1)
+                {
+                  continue;
+                }
+              }
+            }
+            s.push_back(s4i[j]);
+            cc++;
+          }
         }
       }
 
@@ -717,11 +640,83 @@ void CPURenderer::AddLight(Light light)
   lights.push_back(light);
 }
 
-void CPURenderer::Clip(QVector4D A, bool dir)
+void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i)
 {
-  for(GI i=geos.begin(); i!=geos.end(); i++)
+  if(g.size()<3) return;
+  if(g.size()!=i->vecs.size()) return;
+
+  bool lastStatus = (QVector4D::dotProduct(A, QVector4D(g.last(), 1.0))<0) ^ dir;
+  QVector<float> result;
+  for(int i=0; i<g.size(); i++)
   {
-    if(i->vecs.size()<3) continue;
-    bool lastStatus = (QVector3D::dotProduct(A, i->vecs[i->vecs.size()-1].pp)<0) ^ dir;
+    if((QVector4D::dotProduct(A, QVector4D(g[i], 1.0))<0) ^ dir)
+    {
+      qDebug() << "p #" << i << g[i] << "on " << dir << "side of " << A;
+      if(!lastStatus)
+      {
+        QVector4D t(-g[i]+g[(i+g.size()-1)%g.size()], 0.0);
+        QVector4D p0(g[i], 1.0);
+        float k=QVector4D::dotProduct(-A, p0)/QVector4D::dotProduct(A, t);
+        qDebug() << "out-in point:" << p0+k*t << QVector4D::dotProduct(p0+k*t, A);
+        result.push_back(k);
+      }
+      else
+      {
+        result.push_back(10.0);
+      }
+    }
+    else
+    {
+      qDebug() << "p #" << i << g[i] << "on " << !dir << "side of " << A;
+      if(lastStatus)
+      {
+        QVector4D t(-g[i]+g[(i+g.size()-1)%g.size()], 0.0);
+        QVector4D p0(g[i], 1.0);
+        float k=QVector4D::dotProduct(-A, p0)/QVector4D::dotProduct(A, t);
+        qDebug() << "in-out point:" << p0+k*t << QVector4D::dotProduct(p0+k*t, A);
+        result.push_back(-k);
+      }
+      else
+      {
+        result.push_back(-10);
+      }
+    }
+
+    lastStatus=(QVector4D::dotProduct(A, QVector4D(g[i], 1.0))<0) ^ dir;
+  }
+
+  {
+    QVector<VertexInfo> ng;
+    bool dirty=false;
+    for(int v=0; v<i->vecs.size(); v++)
+    {
+      if(result[v]>5.0)
+      {
+        ng.push_back(i->vecs[v]);
+      }
+      else if(result[v]>0)
+      {
+        VertexInfo nf;
+        nf. p=i->vecs[v]. p+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. p-i->vecs[v]. p);
+        nf.pp=i->vecs[v].pp+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].pp-i->vecs[v].pp);
+        nf.tp=i->vecs[v].tp+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].tp-i->vecs[v].tp);
+        nf. n=i->vecs[v]. n+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. n-i->vecs[v]. n);
+        ng.push_back(nf);
+
+        ng.push_back(i->vecs[v]);
+        dirty=true;
+      }
+      else if(result[v]>-1)
+      {
+        VertexInfo nf;
+        nf. p=i->vecs[v]. p-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. p-i->vecs[v]. p);
+        nf.pp=i->vecs[v].pp-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].pp-i->vecs[v].pp);
+        nf.tp=i->vecs[v].tp-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].tp-i->vecs[v].tp);
+        nf. n=i->vecs[v]. n-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. n-i->vecs[v]. n);
+        ng.push_back(nf);
+        dirty=true;
+      }
+    }
+    if(dirty) i->vecs=ng;
   }
 }

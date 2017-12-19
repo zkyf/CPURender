@@ -78,8 +78,8 @@ void MainWindow::on_Render_clicked()
   Geometry geo1;
   geo1.name="Triangle";
   {
-    VertexInfo v1; v1.p=QVector3D(-0.5, -1.5, -1.0);
-    VertexInfo v2; v2.p=QVector3D(-0.5,  1.5, -1.0);
+    VertexInfo v1; v1.p=QVector3D(-0.5, -1.5,  1.0);
+    VertexInfo v2; v2.p=QVector3D(-0.5,  1.5,  1.0);
     VertexInfo v3; v3.p=QVector3D( 0.5,  0.0, -2.0);
 
     geo1.vecs.push_back(v2);
