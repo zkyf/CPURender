@@ -290,6 +290,36 @@ uchar* CPURenderer::Render()
     nowe=edgeList.size()-1;
   }
 
+  // new rasterization
+  {
+    while(nowe>=0)
+    {
+      GI geo = edgeList[nowe].geo;
+      if(geo->vecs[edgeList[nowe].tid].pp.y()>1.0 && geo->vecs[edgeList[nowe].bid].pp.y()>1.0)
+      {
+        nowe--;
+      }
+      else
+      {
+        break;
+      }
+    }
+
+    int topyy=ToScreenY(edgeList[nowe].geo->vecs[edgeList[nowe].tid].pp.y());
+    if(topyy<0) topyy=0;
+    float topy=ToProjY(topyy);
+
+    Scanline scanline;
+    while(nowe)
+    {
+      // find points for initial scanline
+    }
+
+    for(int yy=topyy; yy<size.height(); yy++)
+    {
+    }
+  }
+
   // rasterization
   {
     //qDebug() << "rasterization";

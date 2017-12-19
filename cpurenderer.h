@@ -276,6 +276,7 @@ struct ScanlinePoint : public QVector3D
   int hp;
   int prev;
   int next;
+  int e;
   float dx;
   QVector3D n;
   QVector3D tp;
