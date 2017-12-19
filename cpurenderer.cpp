@@ -624,14 +624,14 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     QVector3D lightDir = (lights[i].tp-frag.tp).normalized();
     QVector3D viewDir = (-frag.tp).normalized();
     QVector3D h = ((viewDir+lightDir)/2).normalized();
-    ColorPixel a = geo->ambient*0.2;
-    float ss = pow(QVector3D::dotProduct(h, frag.normal), 16)*0.8;
-    if(ss<0) ss=1.0;
+    ColorPixel a = geo->ambient*0.4;
+    float ss = pow(QVector3D::dotProduct(h, frag.normal), 16)*0.6;
+    if(ss<0) ss=0.0;
     ColorPixel s = geo->specular*ss;
     frag.color.r = a.r+s.r;
     frag.color.g = a.g+s.g;
     frag.color.b = a.b+s.b;
-    frag.color.a = a.a+s.a;
+    frag.color.a = a.a;
   }
 }
 
@@ -715,4 +715,12 @@ QSize CPURenderer::Size()
 void CPURenderer::AddLight(Light light)
 {
   lights.push_back(light);
+}
+
+void CPURenderer::Clip(QVector4D A, bool dir)
+{
+  for(GI i=geos.begin(); i!=geos.end(); i++)
+  {
+    bool lastStatus;
+  }
 }

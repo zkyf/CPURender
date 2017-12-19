@@ -333,7 +333,7 @@ private:
   VertexInfo VertexShader(VertexInfo v);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
-  void Clip(float a, float b, float c, float d, bool dir);
+  void Clip(QVector4D A, bool dir);
 };
 
 #endif // CPURENDERER_H

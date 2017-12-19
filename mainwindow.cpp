@@ -88,8 +88,8 @@ void MainWindow::on_Render_clicked()
 
     geo1.SetNormal();
   }
-  geo1.ambient = QVector4D(1.0, 0.0, 0.0, 1.0);
-  geo1.specular = QVector3D(1.0, 1.0, 1.0);
+  geo1.ambient = QVector4D(1.0, 0.0, 0.0, 0.8);
+  geo1.specular = QVector4D(0.8, 1.0, 0.8, 0.8);
 //  qDebug() << "before: " << geo1;
   render.AddGeometry(geo1);
 
@@ -108,8 +108,8 @@ void MainWindow::on_Render_clicked()
 
     geo2.SetNormal();
   }
-  geo2.ambient = QVector4D(0.0, 1.0, 0.0, 1.0);
-  geo2.specular = QVector3D(1.0, 1.0, 1.0);
+  geo2.ambient = QVector4D(0.0, 1.0, 0.0, 0.8);
+  geo2.specular = QVector4D(1.0, 0.8, 0.8, 0.8);
   render.AddGeometry(geo2);
 
   NewFrame();
