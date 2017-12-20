@@ -311,6 +311,9 @@ public slots:
   QVector3D CamTranslation();
   void CamRotate(QVector3D axis, double angle);
   QQuaternion CamRotation();
+  QVector3D CamUp() { return camera.up(); }
+  QVector3D CamRight() { return camera.right(); }
+  QVector3D CamForward() { return camera.forward(); }
 
   // operations
   void AddGeometry(const Geometry& geo);

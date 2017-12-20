@@ -24,44 +24,44 @@ void MainWindow::on_graphicsView_KeyReleaseEvent(QKeyEvent *event)
 
   if(event->key()==Qt::Key_A)
   {
-    render.CamRotate(QVector3D(0, 1, 0), 1);
+    render.CamRotate(render.CamUp(), 1);
     NewFrame();
   }
   if(event->key()==Qt::Key_D)
   {
-    render.CamRotate(QVector3D(0, 1, 0), -1);
+    render.CamRotate(render.CamUp(), -1);
     NewFrame();
   }
   if(event->key()==Qt::Key_W)
   {
-    render.CamRotate(QVector3D(1, 0, 0), 1);
+    render.CamRotate(render.CamRight(), 1);
     NewFrame();
   }
   if(event->key()==Qt::Key_S)
   {
-    render.CamRotate(QVector3D(1, 0, 0), -1);
+    render.CamRotate(render.CamRight(), -1);
     NewFrame();
   }
 
   const float tr = 0.05;
   if(event->key()==Qt::Key_J)
   {
-    render.CamTranslate(QVector3D(-1, 0, 0)*tr);
+    render.CamTranslate(-render.CamRight()*tr);
     NewFrame();
   }
   if(event->key()==Qt::Key_L)
   {
-    render.CamTranslate(QVector3D(1, 0, 0)*tr);
+    render.CamTranslate(render.CamRight()*tr);
     NewFrame();
   }
   if(event->key()==Qt::Key_I)
   {
-    render.CamTranslate(QVector3D(0, 0, -1)*tr);
+    render.CamTranslate(render.CamForward()*tr);
     NewFrame();
   }
   if(event->key()==Qt::Key_K)
   {
-    render.CamTranslate(QVector3D(0, 0, 1)*tr);
+    render.CamTranslate(render.CamForward()*tr);
     NewFrame();
   }
 
