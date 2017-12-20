@@ -95,6 +95,8 @@ CPURenderer::~CPURenderer()
 
 uchar* CPURenderer::Render()
 {
+  float epsy = 1.0/size.height();
+  float epsx = 1.0/size.width();
   colorBuffer.Clear();
   depthBuffer.Clear();
 
@@ -258,7 +260,8 @@ uchar* CPURenderer::Render()
     b.at<float>(1, 0)=v2.z()-v1.z();
     Mat dxy=A.inv()*b;
 
-    i->dz = dxy.at<float>(0, 0);
+    i->dz = dxy.at<float>(0, 0)/size.width()*2;
+    i->dzy = dxy.at<float>(1, 0)/size.height()*2;
     //qDebug() << "geo " << *i;
     //qDebug() << "dz=" << i->dz;
   }
@@ -267,6 +270,7 @@ uchar* CPURenderer::Render()
   QVector<EdgeListItem> edgeList;
   int nowe;
   {
+    qDebug() << "regional scanline";
     for(GI i=geos.begin(); i!=geos.end(); i++)
     {
       for(int v=0; v<i->vecs.size(); v++)
@@ -290,7 +294,10 @@ uchar* CPURenderer::Render()
     nowe=edgeList.size()-1;
   }
 
+  qDebug() << "generated edge list in total " << edgeList.size();
+
   // new rasterization
+  if(edgeList.size()>0)
   {
     while(nowe>=0)
     {
@@ -310,187 +317,326 @@ uchar* CPURenderer::Render()
     float topy=ToProjY(topyy);
 
     Scanline scanline;
-    while(nowe)
+    while(nowe>=0)
     {
       // find points for initial scanline
+
+      qDebug() << "nowe=" << nowe << " on " << edgeList[nowe].geo->name << " tid=" << edgeList[nowe].tid << " bid=" << edgeList[nowe].bid;
+      GI geo=edgeList[nowe].geo;
+      int tid=edgeList[nowe].tid;
+      int bid=edgeList[nowe].bid;
+      if(fabs(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y())<epsy)
+      {
+        nowe--;
+        continue;
+      }
+      if(geo->vecs[tid].pp.y()>=topy-epsy && geo->vecs[bid].pp.y()<=topy+epsy)
+      {
+        float r=(topy-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+
+        ScanlinePoint np(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp);
+        np.n = r*geo->vecs[tid].n+(1-r)*geo->vecs[bid].n;
+        np.geo=geo;
+        np.e = nowe;
+        np.dx = (geo->vecs[tid].pp.x()-geo->vecs[bid].pp.x())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y())/size.height()*2;
+
+        scanline.push_back(np);
+        nowe--;
+      }
+      else
+      {
+        break;
+      }
     }
+    qSort(scanline);
 
     for(int yy=topyy; yy<size.height(); yy++)
     {
-    }
-  }
-
-  // rasterization
-  {
-    //qDebug() << "rasterization";
-
-    for(GI i=geos.begin(); i!=geos.end(); i++)
-    {
-      i->Top(); i->Bottom();
-    }
-    qSort(geos);
-
-    //qDebug() << "geos sorted";
-
-    float top=-1e20, bottom=1e20;
-    for(GI i=geos.begin(); i!=geos.end(); i++)
-    {
-      //qDebug() << *i;
-      if(i->vecs.size()<3)
-      {
-        continue;
-      }
-
-      if(i->top>top) top=i->top;
-      if(i->bottom<bottom) bottom=i->bottom;
-    }
-    int tt=ToScreenY(top);
-    if(tt<0) tt=0; if(tt>=size.height()) tt=size.height()-1;
-    int bb=ToScreenY(bottom);
-    if(bb<0) bb=0; if(bb>=size.height()) bb=size.height()-1;
-    //qDebug() << "tt=" << tt << " bb=" << bb;
-
-    for(int yy=tt; yy<bb && yy<size.height(); yy++)
-    {
       float y=ToProjY(yy);
-
-      // generate a scanline
-      Scanline s;
+      for(GI i=geos.begin(); i!=geos.end(); i++)
       {
-        //qDebug() << "generate scanline";
-        for(GI i=geos.begin(); i!=geos.end(); i++)
-        {
-          Scanline s4i;
-    //        //qDebug() << "  for geo@" << *i;
-          //qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
-          if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
-          {
-            continue;
-          }
-
-          int c=0;
-          //qDebug() << "finding hp";
-          for(int j=0; j<i->vecs.size(); j++)
-          {
-            int next=(j+1)%i->vecs.size();
-            int prev=(j-1+i->vecs.size())%i->vecs.size();
-            //qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
-            if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
-            {
-              if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
-              {
-                continue;
-              }
-
-              c++;
-              float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
-              ScanlinePoint np(r*i->vecs[next].pp+(1-r)*i->vecs[j].pp);
-
-              np.tp=r*i->vecs[next].tp+(1-r)*i->vecs[j].tp;
-              np.n=r*i->vecs[next].n+(1-r)*i->vecs[j].n;
-              np.geo=i;
-              np.hp=c;
-
-              if(i->vecs[j].pp.x()<=i->vecs[next].pp.x())
-              {
-                np.prev=j;
-                np.next=next;
-              }
-              else
-              {
-                np.prev=next;
-                np.next=j;
-              }
-              s4i.push_back(np);
-            }
-          }
-
-          qSort(s4i);
-          int cc=1;
-          for(int j=0; j<s4i.size(); j++)
-          {
-            s4i[j].hp=cc;
-            if(j<s4i.size()-1 && j>0 && (fabs(s4i[j].x()-s4i[j+1].x())<1e-3 || fabs(s4i[j].x()-s4i[j-1].x())<1e-3))
-            {
-              if(cc%2==0)
-              {
-                if(j<s4i.size()-1)
-                {
-                  continue;
-                }
-              }
-            }
-            s.push_back(s4i[j]);
-            cc++;
-          }
-        }
+        i->inout=false;
       }
 
-      qSort(s);
-
-      //qDebug() << "sl @yy=" << yy << " y=" << y << ":" << s;
-
-      // fill depth values
-      //qDebug() << "fill depth values";
-      QSet<GI> nowPoly;
-      for(int pid=0; pid<s.size(); pid++)
+      qDebug() << yy << " : scanline.size()=" << scanline.size();
+      for(int pid=0; pid<scanline.size(); pid++)
       {
-        // fill depth buffer here;
+        qDebug() << "pid #" << pid << " p=" << scanline[pid] << " of geometry:" << scanline[pid].geo->name << edgeList[scanline[pid].e].tid << edgeList[scanline[pid].e].bid;
+      }
 
-        //qDebug() << "hp #" << pid;
-
-        if(s[pid].hp%2==1)
+      for(int pid=0; pid<scanline.size(); pid++)
+      {
+        if(pid>0 && pid<scanline.size()-1 && (scanline[pid-1].geo==scanline[pid].geo && scanline[pid+1].geo==scanline[pid].geo) && (fabs(scanline[pid-1].x()-scanline[pid].x())<epsx || fabs(scanline[pid+1].x()-scanline[pid].x())<epsx))
         {
-          nowPoly.insert(s[pid].geo);
-        }
-        else
-        {
-          nowPoly.remove(s[pid].geo);
+          qDebug() << "pid=" << pid << " skipped";
           continue;
         }
 
-        float nn;
-        if(pid<s.size()-1)
-        {
-          nn=s[pid+1].x();
-        }
-        else
-        {
-          nn=1.0;
-        }
-        float nowz=s[pid].z();
+        ScanlinePoint& p=scanline[pid];
+        p.geo->inout=!p.geo->inout;
 
-        int xx = ToScreenX(s[pid].x());
-        if(xx<0)
+        if(p.geo->inout)
         {
-          nowz+=s[pid].geo->dz/size.width()*2*(-xx);
-          xx=0;
-        }
-//            //qDebug() << "depthfragment pushed @" << xx << ", " << yy;
-        for(; ToProjX(xx)<nn && xx<size.width(); xx++)
-        {
-//          //qDebug() << "xx=" << xx;
-          DepthFragment ng;
-          ng.pos.setX(ToProjX(xx));
-          ng.pos.setY(y);
-          float r=(ng.pos.x()-s[pid].x())/(s[pid+1].x()-s[pid].x());
-//          if(yy=size.height()/2)
-//          {
-//            //qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
-//          }
-          ng.pos.setZ(nowz);
-          ng.geo=s[pid].geo;
-          ng.tp=r*s[pid+1].tp+(1-r)*s[pid].tp;
-          ng.normal=r*s[pid+1].n+(1-r)*s[pid].n;
-          nowz+=ng.geo->dz/size.width()*2;
-          // calculate deoth value of a fragment here
-          depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
+          if(pid==scanline.size()-1 || p.geo!=scanline[pid+1].geo)
+          {
+            qDebug() << "Error: Odd number of scan points @ yy=" << yy << " p=" << p << " of geometry:";
+            qDebug() << *p.geo;
+          }
+
+          int nextxx;
+          if(pid<scanline.size()-1) nextxx=ToScreenX(scanline[pid+1].x());
+          else nextxx=size.width();
+          if(nextxx>=size.width()) nextxx=size.width();
+          float nowz=p.z();
+          for(int xx=ToScreenX(p.x()); xx<nextxx; xx++)
+          {
+            //          //qDebug() << "xx=" << xx;
+            DepthFragment ng;
+            ng.pos.setX(ToProjX(xx));
+            ng.pos.setY(y);
+            float r=(ng.pos.x()-scanline[pid].x())/(scanline[pid+1].x()-scanline[pid].x());
+            //          if(yy=size.height()/2)
+            //          {
+            //            //qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
+            //          }
+            ng.pos.setZ(nowz);
+            ng.geo=scanline[pid].geo;
+            ng.tp=r*scanline[pid+1].tp+(1-r)*scanline[pid].tp;
+            ng.normal=r*scanline[pid+1].n+(1-r)*scanline[pid].n;
+            nowz+=ng.geo->dz;
+            // calculate deoth value of a fragment here
+            depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
+          }
         }
       }
-    }
 
-    //qDebug() << "rasterization ended";
+      // generate new scanline
+      {
+        float nexty=ToProjY(yy+1);
+        for(int pid=0; pid<scanline.size(); pid++)
+        {
+          ScanlinePoint& p=scanline[pid];
+          GI geo=p.geo;
+          EdgeListItem& e=edgeList[p.e];
+          if(geo->vecs[e.bid].pp.y()>nexty)
+          {
+            scanline.remove(pid);
+            pid--;
+            continue;
+          }
+          else
+          {
+            p.setX(p.x()-p.dx);
+            p.setY(p.y()-2.0/size.height());
+            p.setZ(p.z()+p.dx*geo->dz/(2.0/size.width())-geo->dzy);
+          }
+        }
+
+        while(nowe>=0)
+        {
+          GI geo=edgeList[nowe].geo;
+          int tid=edgeList[nowe].tid;
+          int bid=edgeList[nowe].bid;
+          if(fabs(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y())<epsy)
+          {
+            nowe--;
+            continue;
+          }
+          if(geo->vecs[tid].pp.y()>=nexty-epsy && geo->vecs[bid].pp.y()<=nexty+epsy)
+          {
+            float r=(nexty-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+
+            ScanlinePoint np(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp);
+            np.n = r*geo->vecs[tid].n+(1-r)*geo->vecs[bid].n;
+            np.geo=geo;
+            np.e = nowe;
+            np.dx = (geo->vecs[tid].pp.x()-geo->vecs[bid].pp.x())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y())/size.height()*2;
+
+            scanline.push_back(np);
+            nowe--;
+          }
+          else
+          {
+            break;
+          }
+        }
+
+        qSort(scanline);
+      }
+    }
   }
+
+//  // rasterization
+//  {
+//    //qDebug() << "rasterization";
+
+//    for(GI i=geos.begin(); i!=geos.end(); i++)
+//    {
+//      i->Top(); i->Bottom();
+//    }
+//    qSort(geos);
+
+//    //qDebug() << "geos sorted";
+
+//    float top=-1e20, bottom=1e20;
+//    for(GI i=geos.begin(); i!=geos.end(); i++)
+//    {
+//      //qDebug() << *i;
+//      if(i->vecs.size()<3)
+//      {
+//        continue;
+//      }
+
+//      if(i->top>top) top=i->top;
+//      if(i->bottom<bottom) bottom=i->bottom;
+//    }
+//    int tt=ToScreenY(top);
+//    if(tt<0) tt=0; if(tt>=size.height()) tt=size.height()-1;
+//    int bb=ToScreenY(bottom);
+//    if(bb<0) bb=0; if(bb>=size.height()) bb=size.height()-1;
+//    //qDebug() << "tt=" << tt << " bb=" << bb;
+
+//    for(int yy=tt; yy<bb && yy<size.height(); yy++)
+//    {
+//      float y=ToProjY(yy);
+
+//      // generate a scanline
+//      Scanline s;
+//      {
+//        //qDebug() << "generate scanline";
+//        for(GI i=geos.begin(); i!=geos.end(); i++)
+//        {
+//          Scanline s4i;
+//    //        //qDebug() << "  for geo@" << *i;
+//          //qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
+//          if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
+//          {
+//            continue;
+//          }
+
+//          int c=0;
+//          //qDebug() << "finding hp";
+//          for(int j=0; j<i->vecs.size(); j++)
+//          {
+//            int next=(j+1)%i->vecs.size();
+//            int prev=(j-1+i->vecs.size())%i->vecs.size();
+//            //qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
+//            if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
+//            {
+//              if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
+//              {
+//                continue;
+//              }
+
+//              c++;
+//              float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
+//              ScanlinePoint np(r*i->vecs[next].pp+(1-r)*i->vecs[j].pp);
+
+//              np.tp=r*i->vecs[next].tp+(1-r)*i->vecs[j].tp;
+//              np.n=r*i->vecs[next].n+(1-r)*i->vecs[j].n;
+//              np.geo=i;
+//              np.hp=c;
+
+//              if(i->vecs[j].pp.x()<=i->vecs[next].pp.x())
+//              {
+//                np.prev=j;
+//                np.next=next;
+//              }
+//              else
+//              {
+//                np.prev=next;
+//                np.next=j;
+//              }
+//              s4i.push_back(np);
+//            }
+//          }
+
+//          qSort(s4i);
+//          int cc=1;
+//          for(int j=0; j<s4i.size(); j++)
+//          {
+//            s4i[j].hp=cc;
+//            if(j<s4i.size()-1 && j>0 && (fabs(s4i[j].x()-s4i[j+1].x())<1e-3 || fabs(s4i[j].x()-s4i[j-1].x())<1e-3))
+//            {
+//              if(cc%2==0)
+//              {
+//                if(j<s4i.size()-1)
+//                {
+//                  continue;
+//                }
+//              }
+//            }
+//            s.push_back(s4i[j]);
+//            cc++;
+//          }
+//        }
+//      }
+
+//      qSort(s);
+
+//      //qDebug() << "sl @yy=" << yy << " y=" << y << ":" << s;
+
+//      // fill depth values
+//      //qDebug() << "fill depth values";
+//      QSet<GI> nowPoly;
+//      for(int pid=0; pid<s.size(); pid++)
+//      {
+//        // fill depth buffer here;
+
+//        //qDebug() << "hp #" << pid;
+
+//        if(s[pid].hp%2==1)
+//        {
+//          nowPoly.insert(s[pid].geo);
+//        }
+//        else
+//        {
+//          nowPoly.remove(s[pid].geo);
+//          continue;
+//        }
+
+//        float nn;
+//        if(pid<s.size()-1)
+//        {
+//          nn=s[pid+1].x();
+//        }
+//        else
+//        {
+//          nn=1.0;
+//        }
+//        float nowz=s[pid].z();
+
+//        int xx = ToScreenX(s[pid].x());
+//        if(xx<0)
+//        {
+//          nowz+=s[pid].geo->dz/size.width()*2*(-xx);
+//          xx=0;
+//        }
+////            //qDebug() << "depthfragment pushed @" << xx << ", " << yy;
+//        for(; ToProjX(xx)<nn && xx<size.width(); xx++)
+//        {
+////          //qDebug() << "xx=" << xx;
+//          DepthFragment ng;
+//          ng.pos.setX(ToProjX(xx));
+//          ng.pos.setY(y);
+//          float r=(ng.pos.x()-s[pid].x())/(s[pid+1].x()-s[pid].x());
+////          if(yy=size.height()/2)
+////          {
+////            //qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
+////          }
+//          ng.pos.setZ(nowz);
+//          ng.geo=s[pid].geo;
+//          ng.tp=r*s[pid+1].tp+(1-r)*s[pid].tp;
+//          ng.normal=r*s[pid+1].n+(1-r)*s[pid].n;
+//          nowz+=ng.geo->dz/size.width()*2;
+//          // calculate deoth value of a fragment here
+//          depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
+//        }
+//      }
+//    }
+
+//    //qDebug() << "rasterization ended";
+//  }
 
   // fragment shader
   {

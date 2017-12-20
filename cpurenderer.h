@@ -106,7 +106,8 @@ struct Geometry
   float top;
   float bottom;
   float dz;
-  QVector<float> dy;
+  float dzy;
+  bool inout;
 
   void AddPoints(QVector<QVector3D> vs)
   {
