@@ -163,6 +163,7 @@ void MainWindow::on_bLoadOBJ_clicked()
   }
 //  qDebug() << "filePath=" << filePath;
   QVector<QVector3D> pointList;
+  QVector<QVector3D> nlist;
   QFile file(filePath);
   if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
   {
@@ -180,6 +181,7 @@ void MainWindow::on_bLoadOBJ_clicked()
       float x,y,z;
       in >> x >> y >> z;
       pointList.push_back(QVector3D(x, y, z));
+      nlist.push_back(QVector3D(0, 0, 0));
     }
   }
 
@@ -226,12 +228,35 @@ void MainWindow::on_bLoadOBJ_clicked()
     {
       int v1, v2, v3;
       in >> v1 >> v2 >> v3;
+      QVector3D p1=pointList[v1-1];
+      QVector3D p2=pointList[v2-1];
+      QVector3D p3=pointList[v3-1];
+      QVector3D n=QVector3D::crossProduct(p3-p2, p1-p2).normalized();
+      nlist[v1-1]+=n;
+      nlist[v2-1]+=n;
+      nlist[v3-1]+=n;
+    }
+  }
+
+  in.seek(0);
+
+  while(!in.atEnd())
+  {
+    QString c;
+    in >> c;
+    c=c.toUpper();
+    if(c=="#") in.readLine();
+    else if(c=="F")
+    {
+      int v1, v2, v3;
+      in >> v1 >> v2 >> v3;
       Geometry g;
-      VertexInfo vi1(pointList[v1-1]); g.vecs.push_back(vi1);
-      VertexInfo vi2(pointList[v2-1]); g.vecs.push_back(vi2);
-      VertexInfo vi3(pointList[v3-1]); g.vecs.push_back(vi3);
-      g.SetNormal();
+      VertexInfo vi1(pointList[v1-1], nlist[v1-1].normalized()); g.vecs.push_back(vi1);
+      VertexInfo vi2(pointList[v2-1], nlist[v2-1].normalized()); g.vecs.push_back(vi2);
+      VertexInfo vi3(pointList[v3-1], nlist[v3-1].normalized()); g.vecs.push_back(vi3);
+
       g.ambient = QVector4D(0.0, 1.0, 0.0, 0.7);
+      g.inner = QVector4D(0.0, 0.6, 0.0, 0.7);
       g.specular = QVector4D(1.0, 0.8, 0.8, 0.7);
       render.AddGeometry(g);
     }

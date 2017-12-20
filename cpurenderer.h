@@ -103,6 +103,7 @@ struct Geometry
   ColorPixel ambient;
   ColorPixel diffuse;
   ColorPixel specular;
+  ColorPixel inner;
 
   float top;
   float bottom;

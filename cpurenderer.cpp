@@ -784,7 +784,9 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     QVector3D viewDir = (-frag.wp).normalized();
     QVector3D h = ((viewDir+lightDir)/2).normalized();
     ColorPixel a = geo->ambient*0.4;
-    float ss = pow(QVector3D::dotProduct(lightDir, frag.normal), 16)*0.6;
+    if(QVector3D::dotProduct(lightDir, frag.normal.normalized())<0)
+      a = geo->inner*0.4;
+    float ss = pow(QVector3D::dotProduct(lightDir, frag.normal.normalized()), 16)*0.6;
     if(ss<0) ss=0;
     ColorPixel s = geo->specular*ss;
     frag.color.r = a.r+s.r;
@@ -794,7 +796,7 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 //    frag.color=(lightDir+QVector3D(1.0, 1.0, 1.0))/2;
   }
 //  frag.color.a=1.0;
-//  frag.color=(frag.normal+QVector3D(1.0, 1.0, 1.0))/2;
+//  frag.color=(frag.normal.normalized()+QVector3D(1.0, 1.0, 1.0))/2;
 }
 
 void CPURenderer::AddGeometry(const Geometry &geo)
