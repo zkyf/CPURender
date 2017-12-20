@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QGraphicsPixmapItem>
 #include <QKeyEvent>
+#include <QFileDialog>
 #include "qgraphicsviewwithmouseevent.h"
 #include "cpurenderer.h"
 
@@ -27,6 +28,10 @@ private slots:
   void NewFrame();
 
   void on_graphicsView_ResizeEvent(QResizeEvent *);
+
+  void on_graphicsView_MousePressEvent(QMouseEvent *event);
+
+  void on_bLoadOBJ_clicked();
 
 private:
   Ui::MainWindow *ui;

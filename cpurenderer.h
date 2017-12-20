@@ -87,6 +87,7 @@ public:
 private:
   QVector3D tp;
   QVector3D pp;
+  QVector3D wp;
 
 public:
   VertexInfo() {}
@@ -221,6 +222,7 @@ struct DepthFragment
   QVector3D normal;
   QVector3D pos;
   QVector3D tp;
+  QVector3D wp;
 
   friend bool operator> (const DepthFragment& a, const DepthFragment& b);
   friend bool operator>=(const DepthFragment& a, const DepthFragment& b);
@@ -282,6 +284,7 @@ struct ScanlinePoint : public QVector3D
   QVector3D n;
   QVector3D tp;
   QVector2D tc;
+  QVector3D wp;
 
   ScanlinePoint(QVector3D p=QVector3D(0, 0, 0)):QVector3D(p) {}
 };
@@ -320,6 +323,8 @@ public slots:
   int ToScreenX(float x);
   float ToProjY(int y);
   float ToProjX(int x);
+
+  DepthPixel DepthPixelAt(int x, int y);
 signals:
   void OutputColorFrame(uchar* frame);
 
@@ -343,7 +348,30 @@ private:
   VertexInfo VertexShader(VertexInfo v);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
-  void Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i);
+  void Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i, bool& dirty);
 };
+
+bool operator> (const DepthFragment& a, const DepthFragment& b);
+bool operator>=(const DepthFragment& a, const DepthFragment& b);
+bool operator< (const DepthFragment& a, const DepthFragment& b);
+bool operator<=(const DepthFragment& a, const DepthFragment& b);
+bool operator==(const DepthFragment& a, const DepthFragment& b);
+
+bool operator> (const Geometry& a, const Geometry& b);
+bool operator< (const Geometry& a, const Geometry& b);
+bool operator>=(const Geometry& a, const Geometry& b);
+bool operator<=(const Geometry& a, const Geometry& b);
+bool operator==(const Geometry& a, const Geometry& b);
+
+bool operator< (const EdgeListItem& a, const EdgeListItem& b);
+
+QDebug& operator<<(QDebug& s, const Geometry& g);
+QDebug& operator<<(QDebug& s, const ScanlinePoint& p);
+QDebug& operator<<(QDebug& s, const Scanline& line);
+QDebug& operator<<(QDebug& s, const ColorPixel& p);
+QDebug& operator<<(QDebug& s, const DepthFragment& f);
+QDebug& operator<<(QDebug& s, const DepthPixel& d);
+
+QVector3D operator*(const QMatrix3x3& m, const QVector3D& x);
 
 #endif // CPURENDERER_H
