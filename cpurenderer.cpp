@@ -410,6 +410,7 @@ uchar* CPURenderer::Render()
           {
             //          ////qDebug() << "xx=" << xx;
             DepthFragment ng;
+            ng.index=xx+yy*size.width();
             ng.pos.setX(ToProjX(xx));
             ng.pos.setY(y);
             float r=(ng.pos.x()-scanline[pid].x())/(scanline[pid+1].x()-scanline[pid].x());
@@ -789,11 +790,10 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     float ss = pow(QVector3D::dotProduct(lightDir, frag.normal.normalized()), 16)*0.6;
     if(ss<0) ss=0;
     ColorPixel s = geo->specular*ss;
-    frag.color.r = a.r+s.r;
-    frag.color.g = a.g+s.g;
-    frag.color.b = a.b+s.b;
-    frag.color.a = a.a*0.4+geo->specular.a*0.6;
-//    frag.color=(lightDir+QVector3D(1.0, 1.0, 1.0))/2;
+    frag.color.r = a.r+s.r*lights[i].color.x();
+    frag.color.g = a.g+s.g*lights[i].color.y();
+    frag.color.b = a.b+s.b*lights[i].color.z();
+    frag.color.a = (a.a*0.4+geo->specular.a*0.6);
   }
 //  frag.color.a=1.0;
 //  frag.color=(frag.normal.normalized()+QVector3D(1.0, 1.0, 1.0))/2;

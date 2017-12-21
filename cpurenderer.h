@@ -28,6 +28,13 @@ class CPURenderer;
 class EdgeListItem;
 class ColorPixel;
 
+struct VertexExtraInfo
+{
+  QVector3D normal;
+  QVector3D tp;
+  QVector2D texcoord;
+};
+
 struct ColorPixel
 {
   float r;
@@ -218,12 +225,14 @@ struct ColorBuffer
 
 struct DepthFragment
 {
+  int index;
   GI geo;
   ColorPixel color;
   QVector3D normal;
   QVector3D pos;
   QVector3D tp;
   QVector3D wp;
+  float d;
 
   friend bool operator> (const DepthFragment& a, const DepthFragment& b);
   friend bool operator>=(const DepthFragment& a, const DepthFragment& b);

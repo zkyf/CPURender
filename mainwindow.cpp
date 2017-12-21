@@ -61,7 +61,7 @@ void MainWindow::on_graphicsView_KeyReleaseEvent(QKeyEvent *event)
   }
   if(event->key()==Qt::Key_K)
   {
-    render.CamTranslate(render.CamForward()*tr);
+    render.CamTranslate(-render.CamForward()*tr);
     NewFrame();
   }
 
