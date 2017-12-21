@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include <QApplication>
 #include "cpurenderer.h"
+#include <QStringList>
 
 int main(int argc, char *argv[])
 {

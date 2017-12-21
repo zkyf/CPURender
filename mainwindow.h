@@ -7,6 +7,7 @@
 #include <QFileDialog>
 #include "qgraphicsviewwithmouseevent.h"
 #include "cpurenderer.h"
+#include "mesh.h"
 
 namespace Ui {
 class MainWindow;
@@ -32,6 +33,10 @@ private slots:
   void on_graphicsView_MousePressEvent(QMouseEvent *event);
 
   void on_bLoadOBJ_clicked();
+
+  void on_bClear_clicked();
+
+  void on_bReset_clicked();
 
 private:
   Ui::MainWindow *ui;

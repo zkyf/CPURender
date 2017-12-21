@@ -49,7 +49,7 @@ QDebug& operator<<(QDebug& s, const Geometry& g)
 
 QDebug& operator<<(QDebug& s, const ScanlinePoint& p)
 {
-  s << "sp " << "(" << p.x() << ", " << p.y() << ", " << p.z() << ") " << "hp=" << p.hp;
+  s << "sp " << "(" << p.x() << ", " << p.y() << ", " << p.z() << ") ";
   return s;
 }
 
@@ -71,7 +71,7 @@ QDebug& operator<<(QDebug& s, const ColorPixel& p)
 
 QDebug& operator<<(QDebug& s, const DepthFragment& f)
 {
-  s << f.geo->name << " color=" << f.color << " pos=" << f.pos << " normal=" << f.normal << " wp=" << f.wp << " wp*normal=" << QVector3D::dotProduct(f.normal.normalized(), (-f.wp).normalized());
+  s << f.geo->name << " color=" << f.color << " pos=" << f.pos << " normal=" << f.v.n << " lightDir=" << f.lightDir << " lightDir*normal=" << QVector3D::dotProduct(f.v.n.normalized(), f.lightDir);
   return s;
 }
 
@@ -82,6 +82,54 @@ QDebug& operator<<(QDebug& s, const DepthPixel& d)
     s << "chain #" << i << ":" << d.chain[i] << endl;
   }
   return s;
+}
+
+VertexInfo operator*(const VertexInfo& v, const float& r)
+{
+  VertexInfo nv=v;
+  nv.n*=r;
+  nv.p*=r;
+  nv.tc*=r;
+  nv.pp*=r;
+  nv.tp*=r;
+  nv.wp*=r;
+  return nv;
+}
+
+VertexInfo operator*(const float& r, const VertexInfo& v)
+{
+  VertexInfo nv=v;
+  nv.n*=r;
+  nv.p*=r;
+  nv.tc*=r;
+  nv.pp*=r;
+  nv.tp*=r;
+  nv.wp*=r;
+  return nv;
+}
+
+VertexInfo operator+(const VertexInfo& a, const VertexInfo& b)
+{
+  VertexInfo nv=a;
+  nv.n+=b.n;
+  nv.p+=b.p;
+  nv.tc+=b.tc;
+  nv.pp+=b.pp;
+  nv.tp+=b.tp;
+  nv.wp+=b.wp;
+  return nv;
+}
+
+VertexInfo operator-(const VertexInfo& a, const VertexInfo& b)
+{
+  VertexInfo nv=a;
+  nv.n-=b.n;
+  nv.p-=b.p;
+  nv.tc-=b.tc;
+  nv.pp-=b.pp;
+  nv.tp-=b.tp;
+  nv.wp-=b.wp;
+  return nv;
 }
 
 CPURenderer::CPURenderer(QSize s) :
@@ -348,9 +396,7 @@ uchar* CPURenderer::Render()
         float r=(topy-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
 
         ScanlinePoint np(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp);
-        np.n = r*geo->vecs[tid].n+(1-r)*geo->vecs[bid].n;
-        np.tp = r*geo->vecs[tid].tp+(1-r)*geo->vecs[bid].tp;
-        np.wp = r*geo->vecs[tid].wp+(1-r)*geo->vecs[bid].wp;
+        np.v = r*geo->vecs[tid]+(1-r)*geo->vecs[bid];
         np.geo=geo;
         np.e = nowe;
         np.dx = (geo->vecs[tid].pp.x()-geo->vecs[bid].pp.x())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y())/size.height()*2;
@@ -410,9 +456,9 @@ uchar* CPURenderer::Render()
           {
             //          ////qDebug() << "xx=" << xx;
             DepthFragment ng;
-            ng.index=xx+yy*size.width();
             ng.pos.setX(ToProjX(xx));
             ng.pos.setY(y);
+            ng.index=xx+yy*size.width();
             float r=(ng.pos.x()-scanline[pid].x())/(scanline[pid+1].x()-scanline[pid].x());
             //          if(yy=size.height()/2)
             //          {
@@ -420,9 +466,7 @@ uchar* CPURenderer::Render()
             //          }
             ng.pos.setZ(nowz);
             ng.geo=scanline[pid].geo;
-            ng.tp=r*scanline[pid+1].tp+(1-r)*scanline[pid].tp;
-            ng.normal=r*scanline[pid+1].n+(1-r)*scanline[pid].n;
-            ng.wp=r*scanline[pid+1].wp+(1-r)*scanline[pid].wp;
+            ng.v=r*scanline[pid+1].v+(1-r)*scanline[pid].v;
             nowz+=ng.geo->dz;
             // calculate deoth value of a fragment here
             depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
@@ -455,9 +499,7 @@ uchar* CPURenderer::Render()
             p.setZ(p.z()-p.dx*geo->dz/(2.0/size.width())-geo->dzy);
 
             float r = (p.y()-geo->vecs[e.bid].pp.y()) / (geo->vecs[e.tid].pp.y()-geo->vecs[e.bid].pp.y());
-            p.tp = geo->vecs[e.tid].tp*r+(1-r)*geo->vecs[e.bid].tp;
-            p.n = geo->vecs[e.tid].n*r+(1-r)*geo->vecs[e.bid].n;
-            p.wp = r*geo->vecs[e.tid].wp+(1-r)*geo->vecs[e.bid].wp;
+            p.v = geo->vecs[e.tid]*r+(1-r)*geo->vecs[e.bid];
           }
         }
 
@@ -490,11 +532,9 @@ uchar* CPURenderer::Render()
             float r=(nexty-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
 
             ScanlinePoint np(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp);
-            np.n = r*geo->vecs[tid].n+(1-r)*geo->vecs[bid].n;
-            np.tp = r*geo->vecs[tid].tp+(1-r)*geo->vecs[bid].tp;
             np.geo=geo;
             np.e = nowe;
-            np.wp = r*geo->vecs[tid].wp+(1-r)*geo->vecs[bid].wp;
+            np.v = r*geo->vecs[tid]+(1-r)*geo->vecs[bid];
             np.dx = (geo->vecs[tid].pp.x()-geo->vecs[bid].pp.x())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y())/size.height()*2;
 
             scanline.push_back(np);
@@ -515,178 +555,6 @@ uchar* CPURenderer::Render()
     }
   }
   //qDebug() << "new rasterization ended";
-
-//  // rasterization
-//  {
-//    ////qDebug() << "rasterization";
-
-//    for(GI i=geos.begin(); i!=geos.end(); i++)
-//    {
-//      i->Top(); i->Bottom();
-//    }
-//    qSort(geos);
-
-//    ////qDebug() << "geos sorted";
-
-//    float top=-1e20, bottom=1e20;
-//    for(GI i=geos.begin(); i!=geos.end(); i++)
-//    {
-//      ////qDebug() << *i;
-//      if(i->vecs.size()<3)
-//      {
-//        continue;
-//      }
-
-//      if(i->top>top) top=i->top;
-//      if(i->bottom<bottom) bottom=i->bottom;
-//    }
-//    int tt=ToScreenY(top);
-//    if(tt<0) tt=0; if(tt>=size.height()) tt=size.height()-1;
-//    int bb=ToScreenY(bottom);
-//    if(bb<0) bb=0; if(bb>=size.height()) bb=size.height()-1;
-//    ////qDebug() << "tt=" << tt << " bb=" << bb;
-
-//    for(int yy=tt; yy<bb && yy<size.height(); yy++)
-//    {
-//      float y=ToProjY(yy);
-
-//      // generate a scanline
-//      Scanline s;
-//      {
-//        ////qDebug() << "generate scanline";
-//        for(GI i=geos.begin(); i!=geos.end(); i++)
-//        {
-//          Scanline s4i;
-//    //        ////qDebug() << "  for geo@" << *i;
-//          ////qDebug() << "geo.top=" << ToScreenY(i->top) << " ," << "geo.bottom=" << ToScreenY(i->bottom);
-//          if(ToScreenY(i->top)>yy || ToScreenY(i->bottom)<yy)
-//          {
-//            continue;
-//          }
-
-//          int c=0;
-//          ////qDebug() << "finding hp";
-//          for(int j=0; j<i->vecs.size(); j++)
-//          {
-//            int next=(j+1)%i->vecs.size();
-//            int prev=(j-1+i->vecs.size())%i->vecs.size();
-//            ////qDebug() << "cond=" << (y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y);
-//            if((y-i->vecs[j].pp.y())*(i->vecs[next].pp.y()-y)>=0)
-//            {
-//              if(fabs(i->vecs[j].pp.y()-i->vecs[next].pp.y())<1e-3)
-//              {
-//                continue;
-//              }
-
-//              c++;
-//              float r=(i->vecs[j].pp.y()-y)/(i->vecs[j].pp.y()-i->vecs[next].pp.y());
-//              ScanlinePoint np(r*i->vecs[next].pp+(1-r)*i->vecs[j].pp);
-
-//              np.tp=r*i->vecs[next].tp+(1-r)*i->vecs[j].tp;
-//              np.n=r*i->vecs[next].n+(1-r)*i->vecs[j].n;
-//              np.geo=i;
-//              np.hp=c;
-
-//              if(i->vecs[j].pp.x()<=i->vecs[next].pp.x())
-//              {
-//                np.prev=j;
-//                np.next=next;
-//              }
-//              else
-//              {
-//                np.prev=next;
-//                np.next=j;
-//              }
-//              s4i.push_back(np);
-//            }
-//          }
-
-//          qSort(s4i);
-//          int cc=1;
-//          for(int j=0; j<s4i.size(); j++)
-//          {
-//            s4i[j].hp=cc;
-//            if(j<s4i.size()-1 && j>0 && (fabs(s4i[j].x()-s4i[j+1].x())<1e-3 || fabs(s4i[j].x()-s4i[j-1].x())<1e-3))
-//            {
-//              if(cc%2==0)
-//              {
-//                if(j<s4i.size()-1)
-//                {
-//                  continue;
-//                }
-//              }
-//            }
-//            s.push_back(s4i[j]);
-//            cc++;
-//          }
-//        }
-//      }
-
-//      qSort(s);
-
-//      ////qDebug() << "sl @yy=" << yy << " y=" << y << ":" << s;
-
-//      // fill depth values
-//      ////qDebug() << "fill depth values";
-//      QSet<GI> nowPoly;
-//      for(int pid=0; pid<s.size(); pid++)
-//      {
-//        // fill depth buffer here;
-
-//        ////qDebug() << "hp #" << pid;
-
-//        if(s[pid].hp%2==1)
-//        {
-//          nowPoly.insert(s[pid].geo);
-//        }
-//        else
-//        {
-//          nowPoly.remove(s[pid].geo);
-//          continue;
-//        }
-
-//        float nn;
-//        if(pid<s.size()-1)
-//        {
-//          nn=s[pid+1].x();
-//        }
-//        else
-//        {
-//          nn=1.0;
-//        }
-//        float nowz=s[pid].z();
-
-//        int xx = ToScreenX(s[pid].x());
-//        if(xx<0)
-//        {
-//          nowz+=s[pid].geo->dz/size.width()*2*(-xx);
-//          xx=0;
-//        }
-////            ////qDebug() << "depthfragment pushed @" << xx << ", " << yy;
-//        for(; ToProjX(xx)<nn && xx<size.width(); xx++)
-//        {
-////          ////qDebug() << "xx=" << xx;
-//          DepthFragment ng;
-//          ng.pos.setX(ToProjX(xx));
-//          ng.pos.setY(y);
-//          float r=(ng.pos.x()-s[pid].x())/(s[pid+1].x()-s[pid].x());
-////          if(yy=size.height()/2)
-////          {
-////            ////qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
-////          }
-//          ng.pos.setZ(nowz);
-//          ng.geo=s[pid].geo;
-//          ng.tp=r*s[pid+1].tp+(1-r)*s[pid].tp;
-//          ng.normal=r*s[pid+1].n+(1-r)*s[pid].n;
-//          nowz+=ng.geo->dz/size.width()*2;
-//          // calculate deoth value of a fragment here
-//          depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
-//        }
-//      }
-//    }
-
-//    ////qDebug() << "rasterization ended";
-//  }
 
   // fragment shader
   {
@@ -777,26 +645,33 @@ void CPURenderer::GeometryShader(Geometry &geo)
 
 void CPURenderer::FragmentShader(DepthFragment &frag)
 {
+  const float ar=0.1;
+  const float dr=0.3;
+  const float sr=0.6;
   GI geo = frag.geo;
   frag.color = geo->ambient;
   for(int i=0; i<lights.size(); i++)
   {
-    QVector3D lightDir = (lights[i].pos-frag.wp).normalized();
-    QVector3D viewDir = (-frag.wp).normalized();
+    QVector3D lightDir = (lights[i].pos-frag.v.wp).normalized();
+    QVector3D viewDir = (camera.translation()-frag.v.wp).normalized();
     QVector3D h = ((viewDir+lightDir)/2).normalized();
-    ColorPixel a = geo->ambient*0.4;
-    if(QVector3D::dotProduct(lightDir, frag.normal.normalized())<0)
-      a = geo->inner*0.4;
-    float ss = pow(QVector3D::dotProduct(lightDir, frag.normal.normalized()), 16)*0.6;
+    ColorPixel a = geo->ambient*ar;
+    float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized());
+    if(dd<0) dd=-dd;
+    ColorPixel d = geo->diffuse*dd*dr;
+    float ss = pow(QVector3D::dotProduct(h, frag.v.n.normalized()), 16)*sr/pow((lights[i].pos-frag.v.wp).length(), 2);
+    if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
     if(ss<0) ss=0;
     ColorPixel s = geo->specular*ss;
-    frag.color.r = a.r+s.r*lights[i].color.x();
-    frag.color.g = a.g+s.g*lights[i].color.y();
-    frag.color.b = a.b+s.b*lights[i].color.z();
-    frag.color.a = (a.a*0.4+geo->specular.a*0.6);
+    frag.color.r = a.r+(d.r+s.r)*lights[i].color.x();
+    frag.color.g = a.g+(d.g+s.g)*lights[i].color.y();
+    frag.color.b = a.b+(d.b+s.b)*lights[i].color.z();
+    frag.color.a = (a.a*ar+d.a*dr+s.a*sr);
+//    frag.color=d;
+//    frag.lightDir=lightDir;
   }
 //  frag.color.a=1.0;
-//  frag.color=(frag.normal.normalized()+QVector3D(1.0, 1.0, 1.0))/2;
+//  frag.color=(frag.v.n+QVector3D(1.0, 1.0, 1.0))/2;
 }
 
 void CPURenderer::AddGeometry(const Geometry &geo)
@@ -943,10 +818,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i, bool &
       else if(result[v]>0)
       {
         VertexInfo nf;
-        nf. p=i->vecs[v]. p+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. p-i->vecs[v]. p);
-        nf.pp=i->vecs[v].pp+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].pp-i->vecs[v].pp);
-        nf.tp=i->vecs[v].tp+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].tp-i->vecs[v].tp);
-        nf. n=i->vecs[v]. n+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. n-i->vecs[v]. n);
+        nf=i->vecs[v]+result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]-i->vecs[v]);
         ng.push_back(nf);
 
         ng.push_back(i->vecs[v]);
@@ -955,10 +827,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i, bool &
       else if(result[v]>-1)
       {
         VertexInfo nf;
-        nf. p=i->vecs[v]. p-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. p-i->vecs[v]. p);
-        nf.pp=i->vecs[v].pp-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].pp-i->vecs[v].pp);
-        nf.tp=i->vecs[v].tp-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()].tp-i->vecs[v].tp);
-        nf. n=i->vecs[v]. n-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]. n-i->vecs[v]. n);
+        nf=i->vecs[v]-result[v]*(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()]-i->vecs[v]);
         ng.push_back(nf);
         dirty=true;
       }

@@ -24,19 +24,9 @@ using namespace cv;
 
 #endif
 
-class CPURenderer;
-class EdgeListItem;
-class ColorPixel;
-
-struct VertexExtraInfo
+class ColorPixel
 {
-  QVector3D normal;
-  QVector3D tp;
-  QVector2D texcoord;
-};
-
-struct ColorPixel
-{
+public:
   float r;
   float g;
   float b;
@@ -79,30 +69,43 @@ struct ColorPixel
     return ColorPixel(r*c, g*c, b*c, a);
   }
 };
+QDebug& operator<<(QDebug& s, const ColorPixel& p);
 
-struct VertexInfo
+class VertexInfo
 {
-  friend class CPURenderer;
-  friend class Geometry;
-  friend QDebug& operator<<(QDebug& s, const Geometry& g);
-  friend bool operator<(const EdgeListItem& a, const EdgeListItem& b);
 public:
+  // original position in the world
   QVector3D p;
+  // normal
   QVector3D n;
+  // texture co-ordinate
   QVector2D tc;
-
-private:
-  QVector3D tp;
-  QVector3D pp;
+  // transformed position in Ether frame
   QVector3D wp;
+
+  // These 2 variables are used in vertex processing
+  // transformed position in camera frame
+  QVector3D tp;
+  // projected posotion in perspective frame
+  QVector3D pp;
 
 public:
   VertexInfo() {}
   VertexInfo(QVector3D _p, QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0)) : p(_p), n(_n), tc(_tc) {}
-};
 
-struct Geometry
+  friend VertexInfo operator*(const VertexInfo& v, const float& r);
+  friend VertexInfo operator*(const float& r, const VertexInfo& v);
+  friend VertexInfo operator+(const VertexInfo& a, const VertexInfo& b);
+  friend VertexInfo operator-(const VertexInfo& a, const VertexInfo& b);
+};
+VertexInfo operator*(const VertexInfo& v, const float& r);
+VertexInfo operator*(const float& r, const VertexInfo& v);
+VertexInfo operator+(const VertexInfo& a, const VertexInfo& b);
+VertexInfo operator-(const VertexInfo& a, const VertexInfo& b);
+
+class Geometry
 {
+public:
   QString name;
 
   QVector<VertexInfo> vecs;
@@ -110,13 +113,14 @@ struct Geometry
   ColorPixel ambient;
   ColorPixel diffuse;
   ColorPixel specular;
-  ColorPixel inner;
 
   float top;
   float bottom;
   float dz;
   float dzy;
   bool inout;
+
+  QImage dt;
 
   void AddPoints(QVector<QVector3D> vs)
   {
@@ -176,12 +180,21 @@ struct Geometry
   friend bool operator>=(const Geometry& a, const Geometry& b);
   friend bool operator<=(const Geometry& a, const Geometry& b);
   friend bool operator==(const Geometry& a, const Geometry& b);
+
+  friend QDebug& operator<<(QDebug& s, const Geometry& g);
 };
+bool operator> (const Geometry& a, const Geometry& b);
+bool operator< (const Geometry& a, const Geometry& b);
+bool operator>=(const Geometry& a, const Geometry& b);
+bool operator<=(const Geometry& a, const Geometry& b);
+bool operator==(const Geometry& a, const Geometry& b);
+QDebug& operator<<(QDebug& s, const Geometry& g);
 
 typedef QVector<Geometry>::iterator GI;
 
-struct ColorBuffer
+class ColorBuffer
 {
+public:
   QSize size;
   ColorPixel* buffer;
 
@@ -223,16 +236,15 @@ struct ColorBuffer
   }
 };
 
-struct DepthFragment
+class DepthFragment
 {
+public:
   int index;
   GI geo;
   ColorPixel color;
-  QVector3D normal;
   QVector3D pos;
-  QVector3D tp;
-  QVector3D wp;
-  float d;
+  VertexInfo v;
+  QVector3D lightDir;
 
   friend bool operator> (const DepthFragment& a, const DepthFragment& b);
   friend bool operator>=(const DepthFragment& a, const DepthFragment& b);
@@ -240,14 +252,23 @@ struct DepthFragment
   friend bool operator<=(const DepthFragment& a, const DepthFragment& b);
   friend bool operator==(const DepthFragment& a, const DepthFragment& b);
 };
+bool operator> (const DepthFragment& a, const DepthFragment& b);
+bool operator>=(const DepthFragment& a, const DepthFragment& b);
+bool operator< (const DepthFragment& a, const DepthFragment& b);
+bool operator<=(const DepthFragment& a, const DepthFragment& b);
+bool operator==(const DepthFragment& a, const DepthFragment& b);
+QDebug& operator<<(QDebug& s, const DepthFragment& f);
 
-struct DepthPixel
+class DepthPixel
 {
+public:
   QVector<DepthFragment> chain;
 };
+QDebug& operator<<(QDebug& s, const DepthPixel& d);
 
-struct DepthBuffer
+class DepthBuffer
 {
+public:
   DepthPixel* buffer;
   QSize size;
 
@@ -276,30 +297,33 @@ struct DepthBuffer
   }
 };
 
-struct EdgeListItem
+class EdgeListItem
 {
+public:
   GI geo;
   int tid; // id of top vertex;
   int bid; // id of bottom vertex;
-};
 
-struct ScanlinePoint : public QVector3D
+  friend bool operator<(const EdgeListItem& a, const EdgeListItem& b);
+};
+bool operator< (const EdgeListItem& a, const EdgeListItem& b);
+
+class ScanlinePoint : public QVector3D
 {
+public:
   GI geo;
-  int hp;
   int prev;
   int next;
   int e;
   float dx;
-  QVector3D n;
-  QVector3D tp;
-  QVector2D tc;
-  QVector3D wp;
+  VertexInfo v;
 
   ScanlinePoint(QVector3D p=QVector3D(0, 0, 0)):QVector3D(p) {}
 };
+QDebug& operator<<(QDebug& s, const ScanlinePoint& p);
 
 typedef QVector<ScanlinePoint> Scanline;
+QDebug& operator<<(QDebug& s, const Scanline& line);
 
 class CPURenderer : public QObject
 {
@@ -314,6 +338,7 @@ public slots:
   QVector3D WorldTranslation();
   void WorldRotate(QVector3D axis, double angle);
   QQuaternion WorldRotation();
+  void ResetWorld() { transform.setTranslation(0, 0, 0); transform.setRotation(0, 1, 0, 0);}
 
   // camera config
   void CamTranslate(QVector3D trans);
@@ -323,12 +348,14 @@ public slots:
   QVector3D CamUp() { return camera.up(); }
   QVector3D CamRight() { return camera.right(); }
   QVector3D CamForward() { return camera.forward(); }
+  void ResetCam() { camera.setTranslation(0, 0, 0); camera.setRotation(0, 1, 0, 0); }
 
   // operations
   void AddGeometry(const Geometry& geo);
   void Resize(QSize w);
   QSize Size();
   void AddLight(Light light);
+  void ClearGeometry() { input.clear(); }
 
   uchar* Render();
 
@@ -363,27 +390,6 @@ private:
   void FragmentShader(DepthFragment& frag);
   void Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i, bool& dirty);
 };
-
-bool operator> (const DepthFragment& a, const DepthFragment& b);
-bool operator>=(const DepthFragment& a, const DepthFragment& b);
-bool operator< (const DepthFragment& a, const DepthFragment& b);
-bool operator<=(const DepthFragment& a, const DepthFragment& b);
-bool operator==(const DepthFragment& a, const DepthFragment& b);
-
-bool operator> (const Geometry& a, const Geometry& b);
-bool operator< (const Geometry& a, const Geometry& b);
-bool operator>=(const Geometry& a, const Geometry& b);
-bool operator<=(const Geometry& a, const Geometry& b);
-bool operator==(const Geometry& a, const Geometry& b);
-
-bool operator< (const EdgeListItem& a, const EdgeListItem& b);
-
-QDebug& operator<<(QDebug& s, const Geometry& g);
-QDebug& operator<<(QDebug& s, const ScanlinePoint& p);
-QDebug& operator<<(QDebug& s, const Scanline& line);
-QDebug& operator<<(QDebug& s, const ColorPixel& p);
-QDebug& operator<<(QDebug& s, const DepthFragment& f);
-QDebug& operator<<(QDebug& s, const DepthPixel& d);
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x);
 

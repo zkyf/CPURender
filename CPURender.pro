@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui xml
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -29,7 +29,8 @@ SOURCES += main.cpp\
     camera3d.cpp \
     light.cpp \
     transform3d.cpp \
-    qgraphicsviewwithmouseevent.cpp
+    qgraphicsviewwithmouseevent.cpp \
+    mesh.cpp
 
 HEADERS  += mainwindow.h \
     cpurenderer.h \
@@ -37,7 +38,8 @@ HEADERS  += mainwindow.h \
     light.h \
     transform3d.h \
     simplemesh.h \
-    qgraphicsviewwithmouseevent.h
+    qgraphicsviewwithmouseevent.h \
+    mesh.h
 
 FORMS    += mainwindow.ui
 
