@@ -309,6 +309,26 @@ void MyMesh::Smooth()
   }
 }
 
+void MyMesh::Sharp()
+{
+  normals.clear();
+  for(int fid=0; fid<faces.size(); fid++)
+  {
+    MyFace& face=faces[fid];
+    QVector3D n=Normal(fid);
+    normals.push_back(n);
+    face.nindex.clear();
+    for(int vid=0; vid<face.vindex.size(); vid++)
+    {
+      face.nindex.push_back(fid);
+    }
+  }
+  for(int vid=0; vid<vertices.size(); vid++)
+  {
+    normals[vid].normalize();
+  }
+}
+
 MyModel::MyModel()
 {
 	center = QVector3D(0, 0, 0);
@@ -438,6 +458,14 @@ void MyModel::Smooth()
   for(int i=0; i<meshes.size(); i++)
   {
     meshes[i].Smooth();
+  }
+}
+
+void MyModel::Sharp()
+{
+  for(int i=0; i<meshes.size(); i++)
+  {
+    meshes[i].Sharp();
   }
 }
 

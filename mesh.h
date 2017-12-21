@@ -81,6 +81,7 @@ struct MyMesh
     void Render(CPURenderer* render);
     QVector3D Normal(int fid);
     void Smooth();
+    void Sharp();
 
 		QVector<MyVertex> vertices;
 		QVector<QVector3D> normals;
@@ -114,6 +115,7 @@ struct MyModel
 
     void Render(CPURenderer* render);
     void Smooth();
+    void Sharp();
 };
 
 Q_DECLARE_METATYPE(MyModel)

@@ -38,10 +38,18 @@ private slots:
 
   void on_bReset_clicked();
 
+  void on_bSmooth_clicked();
+
+  void on_bSharp_clicked();
+
+  void on_bOriginal_clicked();
+
 private:
   Ui::MainWindow *ui;
 
   CPURenderer render;
+  MyModel model;
+  MyModel original;
 };
 
 #endif // MAINWINDOW_H

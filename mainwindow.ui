@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>408</width>
+    <width>507</width>
     <height>290</height>
    </rect>
   </property>
@@ -58,6 +58,36 @@
         <widget class="QPushButton" name="bClear">
          <property name="text">
           <string>Clear</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="groupBox_3">
+      <property name="title">
+       <string>Operations</string>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QPushButton" name="bSmooth">
+         <property name="text">
+          <string>Smooth</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="bSharp">
+         <property name="text">
+          <string>Sharp</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="bOriginal">
+         <property name="text">
+          <string>Original</string>
          </property>
         </widget>
        </item>

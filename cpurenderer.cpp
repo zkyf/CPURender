@@ -472,6 +472,13 @@ uchar* CPURenderer::Render()
             depthBuffer.buffer[xx+yy*size.width()].chain.push_back(ng);
           }
         }
+        else
+        {
+          if(pid<scanline.size()-1 && (pid==scanline.size()-2 || (scanline[pid+1].geo==scanline[pid].geo && scanline[pid+2].geo!=scanline[pid+1].geo)))
+          {
+            scanline[pid].geo->inout=!scanline[pid].geo->inout;
+          }
+        }
       }
 
       // generate new scanline
