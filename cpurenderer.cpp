@@ -71,7 +71,7 @@ QDebug& operator<<(QDebug& s, const ColorPixel& p)
 
 QDebug& operator<<(QDebug& s, const DepthFragment& f)
 {
-  s << f.geo->name << " color=" << f.color << " pos=" << f.pos << " normal=" << f.v.n << " lightDir=" << f.lightDir << " lightDir*normal=" << QVector3D::dotProduct(f.v.n.normalized(), f.lightDir);
+  s << f.geo->name << " color=" << f.color << " pos=" << f.pos << " normal=" << f.v.n << " tc=" << f.v.tc;
   return s;
 }
 
@@ -663,9 +663,13 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     QVector3D viewDir = (camera.translation()-frag.v.wp).normalized();
     QVector3D h = ((viewDir+lightDir)/2).normalized();
     ColorPixel a = geo->ambient*ar;
-    float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized());
+    float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
     if(dd<0) dd=-dd;
-    ColorPixel d = geo->diffuse*dd*dr;
+    ColorPixel d = geo->diffuse*dd;
+    if(geo->text>=0)
+    {
+      d=Sample(geo->text, frag.v.tc.x(), frag.v.tc.y())*dd;
+    }
     float ss = pow(QVector3D::dotProduct(h, frag.v.n.normalized()), 16)*sr/pow((lights[i].pos-frag.v.wp).length(), 2);
     if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
     if(ss<0) ss=0;
@@ -845,4 +849,20 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i, bool &
     }
     if(dirty) i->vecs=ng;
   }
+}
+
+int CPURenderer::AddTexture(QImage text)
+{
+  textures.push_back(text);
+  return textures.size()-1;
+}
+
+ColorPixel CPURenderer::Sample(int tid, float u, float v, bool bi)
+{
+  int ll=u*(textures[tid].width()-1);
+  ll = ll%textures[tid].width();
+  int tt=(1-v)*(textures[tid].height()-1);
+  tt = tt%textures[tid].height();
+  QColor c = textures[tid].pixelColor(ll, tt);
+  return ColorPixel(c.redF(),  c.greenF(), c.blueF(), c.alphaF());
 }

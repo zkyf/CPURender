@@ -25,63 +25,53 @@ void MainWindow::on_graphicsView_KeyReleaseEvent(QKeyEvent *event)
   if(event->key()==Qt::Key_A)
   {
     render.CamRotate(render.CamUp(), 1);
-    NewFrame();
   }
   if(event->key()==Qt::Key_D)
   {
     render.CamRotate(render.CamUp(), -1);
-    NewFrame();
   }
   if(event->key()==Qt::Key_W)
   {
     render.CamRotate(render.CamRight(), 1);
-    NewFrame();
   }
   if(event->key()==Qt::Key_S)
   {
     render.CamRotate(render.CamRight(), -1);
-    NewFrame();
   }
 
   const float tr = 0.05;
   if(event->key()==Qt::Key_J)
   {
     render.CamTranslate(-render.CamRight()*tr);
-    NewFrame();
   }
   if(event->key()==Qt::Key_L)
   {
     render.CamTranslate(render.CamRight()*tr);
-    NewFrame();
   }
   if(event->key()==Qt::Key_I)
   {
     render.CamTranslate(render.CamForward()*tr);
-    NewFrame();
   }
   if(event->key()==Qt::Key_K)
   {
     render.CamTranslate(-render.CamForward()*tr);
-    NewFrame();
   }
   if(event->key()==Qt::Key_U)
   {
     render.CamTranslate(render.CamUp()*tr);
-    NewFrame();
   }
   if(event->key()==Qt::Key_O)
   {
     render.CamTranslate(-render.CamUp()*tr);
-    NewFrame();
   }
 
   if(event->key()==Qt::Key_Space)
   {
     render.WorldRotate(QVector3D(0, 1, 0), 3);
-    NewFrame();
   }
 
 //  qDebug() << "now rotation: " << render.CamRotation().toEulerAngles() << ", now translation:" << render.CamTranslation();
+  NewFrame();
 }
 
 void MainWindow::on_Render_clicked()
@@ -134,6 +124,7 @@ void MainWindow::on_Render_clicked()
 
 void MainWindow::NewFrame()
 {
+  render.lights[0].pos=render.CamTranslation();
 //  render.CamRotate(QVector3D(1, 0, 0), -10);
   uchar* frame = render.Render();
   QSize size= render.Size();

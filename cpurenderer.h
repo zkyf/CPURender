@@ -118,6 +118,8 @@ public:
   float bottom;
   float dz;
   float dzy;
+  float ns;
+  int text=-1;
   bool inout;
 
   QImage dt;
@@ -357,6 +359,10 @@ public slots:
   void AddLight(Light light);
   void ClearGeometry() { input.clear(); }
 
+  // textures
+  int AddTexture(QImage text);
+  ColorPixel Sample(int tid, float u, float v, bool bi=false);
+
   uchar* Render();
 
   int ToScreenY(float y);
@@ -368,6 +374,9 @@ public slots:
 signals:
   void OutputColorFrame(uchar* frame);
 
+public:
+  QVector<Light> lights;
+
 private:
   QSize size;
 
@@ -377,10 +386,10 @@ private:
 
   Camera3D camera;
   Transform3D transform;
-  QVector<Light> lights;
 
   QVector<Geometry> geos;
   QVector<Geometry> input;
+  QVector<QImage> textures;
   ColorBuffer colorBuffer;
   DepthBuffer depthBuffer;
   uchar* stencilBuffer;

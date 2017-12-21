@@ -29,20 +29,6 @@ struct MyVertex : public QVector3D
 	void operator=(QVector3D&);
 };
 
-struct MyFace
-{
-	QVector<int> vindex;
-	QVector<int> nindex;
-	QVector<int> tindex;
-	QVector3D kd;
-	QVector3D ks;
-	bool status;
-	bool paint;
-
-	MyFace();
-	void AddVertex(int vin, int nin=-1, int tin=-1);
-};
-
 struct MyMaterial
 {
   QString name;
@@ -53,11 +39,26 @@ struct MyMaterial
   float ns;
   float d;
   float ni;
-  QString map_ka;
-  QString map_kd;
-  QString map_ks;
+  QString map_ka; int maid=-1;
+  QString map_kd; int mdid=-1;
+  QString map_ks; int msid=-1;
   QString map_d;
   QString map_bump;
+};
+
+struct MyFace
+{
+	QVector<int> vindex;
+	QVector<int> nindex;
+	QVector<int> tindex;
+
+  MyMaterial mat;
+
+	bool status;
+	bool paint;
+
+	MyFace();
+	void AddVertex(int vin, int nin=-1, int tin=-1);
 };
 
 struct MyMesh
@@ -82,12 +83,13 @@ struct MyMesh
     QVector3D Normal(int fid);
     void Smooth();
     void Sharp();
+    void Clear();
 
-		QVector<MyVertex> vertices;
-		QVector<QVector3D> normals;
-		QVector<QVector2D> texcoords;
+    QVector<MyVertex> vertices;
+    QVector<QVector3D> normals;
+    QVector<QVector2D> texcoords;
 		QVector<MyFace> faces;
-    MyMaterial mat;
+    QVector<QImage> textures;
 		QString name;
 		bool paint;
 };
@@ -95,7 +97,7 @@ struct MyMesh
 struct MyModel
 {
 	public:
-		QVector<MyMesh> meshes;
+    QVector<MyMesh> meshes;
 
 		QVector3D center;
 		float scale;
@@ -123,5 +125,6 @@ Q_DECLARE_METATYPE(MyModel)
 bool WriteMyModel2OBJ(QString path, MyModel model);
 bool WriteMyModel2DAE(QString path, MyModel model);
 MyModel LoadOBJ(QString path);
+QVector<MyMaterial> LoadMTL(QString path);
 
 #endif // MESH_H

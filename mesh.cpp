@@ -27,8 +27,6 @@ void MyVertex::operator=(QVector3D& b)
 
 MyFace::MyFace()
 {
-	kd = QVector3D(1.0, 1.0, 1.0);
-	ks = QVector3D(1.0, 1.0, 1.0);
 	status = true;
 	paint = true;
 }
@@ -268,13 +266,23 @@ void MyMesh::Render(CPURenderer *render)
       {
         noNorm=true;
       }
+      if(faces[fid].tindex.size()>vid && faces[fid].tindex[vid]>0)
+      {
+        v.tc=texcoords[faces[fid].tindex[vid]];
+      }
       geo.vecs.push_back(v);
     }
     if(noNorm) geo.SetNormal();
-    geo.ambient=mat.ka;
-    geo.diffuse=mat.kd;
-    geo.specular=mat.ks;
+    geo.ambient=faces[fid].mat.ka;
+    geo.diffuse=faces[fid].mat.kd;
+    geo.specular=faces[fid].mat.ks;
+    geo.text=faces[fid].mat.mdid;
     render->AddGeometry(geo);
+  }
+
+  for(int i=0; i<textures.size(); i++)
+  {
+    render->AddTexture(textures[i]);
   }
 }
 
@@ -327,6 +335,15 @@ void MyMesh::Sharp()
   {
     normals[vid].normalize();
   }
+}
+
+void MyMesh::Clear()
+{
+  faces.clear();
+  vertices.clear();
+  normals.clear();
+  texcoords.clear();
+  name = "";
 }
 
 MyModel::MyModel()
@@ -752,17 +769,17 @@ MyModel LoadOBJ(QString path)
 
   QTextStream in(&file);
   MyModel result;
+  result.folder = fileDir;
   MyMesh mesh;
-  mesh.mat.ka = QVector3D(0.0, 1.0, 0.0);
-  mesh.mat.kd = QVector3D(0.0, 1.0, 0.0);
-  mesh.mat.ks = QVector3D(1.0, 1.0, 1.0);
-  mesh.mat.d = 0.7;
-  int lastv = 0, lastt = 0, lastn = 0;
+  QVector<MyMaterial> mtllib;
+  int nowMat=-1;
+
   while(!in.atEnd())
   {
     QString c;
     in >> c;
     c=c.toUpper();
+//    qDebug() << c << ":";
     if(c=="#")
     {
       in.readLine();
@@ -810,13 +827,128 @@ MyModel LoadOBJ(QString path)
         face.nindex.push_back(n);
         face.tindex.push_back(t);
       }
+      if(nowMat>=0) face.mat=mtllib[nowMat];
+      else
+      {
+        face.mat.ka = QVector3D(0.0, 1.0, 0.0);
+        face.mat.kd = QVector3D(0.0, 1.0, 0.0);
+        face.mat.ks = QVector3D(1.0, 1.0, 1.0);
+      }
       mesh.AddFace(face);
     }
+    else if(c=="MTLLIB")
+    {
+      QString mtlname;
+      in >> mtlname;
+      mtllib = LoadMTL(fileDir+"/"+mtlname);
 
+      for(int i=0; i<mtllib.size(); i++)
+      {
+        qDebug() << "mat #" << i << "map_kd=" << mtllib[i].map_kd;
+        if(mtllib[i].map_kd!="")
+        {
+          mesh.textures.push_back(QImage(fileDir+"/"+mtllib[i].map_kd));
+          mtllib[i].mdid=mesh.textures.size()-1;
+        }
+      }
+    }
+    else if(c=="USEMTL")
+    {
+      QString mat;
+      in >> mat;
+      for(int i=0; i<mtllib.size(); i++)
+      {
+        if(mtllib[i].name==mat)
+        {
+          nowMat=i;
+          break;
+        }
+      }
+    }
   }
   if(mesh.faces.size()!=0)
   {
     result.AddMesh(mesh);
+  }
+  return result;
+}
+
+QVector<MyMaterial> LoadMTL(QString path)
+{
+  qDebug() << "LoadMTL: " << path;
+  QFileInfo fileInfo(path);
+  QFile file(path);
+  if(!file.open(QIODevice::Text | QIODevice::ReadOnly))
+  {
+    return QVector<MyMaterial>();
+  }
+  QTextStream in(&file);
+
+  QVector<MyMaterial> result;
+  bool dirty=false;
+  MyMaterial mat;
+  while(!in.atEnd())
+  {
+    QString c;
+    in >> c;
+    c=c.toUpper();
+//    qDebug() << c << ":";
+    if(c=="#")
+    {
+      in.readLine();
+    }
+    else if(c=="NEWMTL")
+    {
+      if(dirty)
+      {
+        result.push_back(mat);
+        mat = MyMaterial();
+      }
+
+      in >> mat.name;
+      dirty=false;
+    }
+    else if(c=="KA")
+    {
+      float r, g, b;
+      in >> r >> g >> b;
+      mat.ka = QVector3D(r, g, b);
+      dirty=true;
+    }
+    else if(c=="KD")
+    {
+      float r, g, b;
+      in >> r >> g >> b;
+      mat.kd = QVector3D(r, g, b);
+      dirty=true;
+    }
+    else if(c=="KS")
+    {
+      float r, g, b;
+      in >> r >> g >> b;
+      mat.ks = QVector3D(r, g, b);
+      dirty=true;
+    }
+    else if(c=="NS")
+    {
+      in >> mat.ns;
+      dirty=true;
+    }
+    else if(c=="MAP_KA")
+    {
+      dirty=true;
+      in >> mat.map_ka;
+    }
+    else if(c=="MAP_KD")
+    {
+      dirty=true;
+      in >> mat.map_kd;
+    }
+  }
+
+  if(dirty)
+  {
+    result.push_back(mat);
   }
   return result;
 }
