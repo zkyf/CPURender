@@ -605,9 +605,9 @@ void CPURenderer::GeometryShader(Geometry &geo)
 
 void CPURenderer::FragmentShader(DepthFragment &frag)
 {
-  const float ar=0.1;
+  const float ar=0.2;
   const float dr=0.3;
-  const float sr=0.6;
+  const float sr=0.5;
   GI geo = frag.geo;
   frag.color = geo->ambient;
   for(int i=0; i<lights.size(); i++)

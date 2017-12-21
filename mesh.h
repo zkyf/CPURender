@@ -33,9 +33,9 @@ struct MyMaterial
 {
   QString name;
   int illum;
-  QVector3D kd;
-  QVector3D ka;
-  QVector3D ks;
+  QVector3D kd = QVector3D(1.0, 1.0, 1.0);
+  QVector3D ka = QVector3D(1.0, 1.0, 1.0);
+  QVector3D ks = QVector3D(1.0, 1.0, 1.0);
   float ns;
   float d;
   float ni;
