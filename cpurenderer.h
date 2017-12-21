@@ -87,21 +87,26 @@ public:
   // transformed position in camera frame
   QVector3D tp;
   // projected posotion in perspective frame
-  QVector3D pp;
+  QVector4D pp;
 
 public:
   VertexInfo() {}
   VertexInfo(QVector3D _p, QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0)) : p(_p), n(_n), tc(_tc) {}
 
-  friend VertexInfo operator*(const VertexInfo& v, const float& r);
-  friend VertexInfo operator*(const float& r, const VertexInfo& v);
-  friend VertexInfo operator+(const VertexInfo& a, const VertexInfo& b);
-  friend VertexInfo operator-(const VertexInfo& a, const VertexInfo& b);
+  static VertexInfo Intersect(VertexInfo a, VertexInfo b, float r)
+  {
+    VertexInfo result;
+    result.p = r*a.p+(1-r)*b.p;
+    result.n = r*a.n+(1-r)*b.n;
+    result.wp = r*a.wp+(1-r)*b.wp;
+    result.tp = r*a.tp+(1-r)*b.tp;
+    result.pp = r*a.pp+(1-r)*b.pp;
+
+    result.tc = (r*a.tc/a.pp.w()+(1-r)*b.tc/b.pp.w())/(r/a.pp.w()+(1-r)/b.pp.w());
+//    result.n = (r*a.n/a.pp.w()+(1-r)*b.n/b.pp.w())/(r/a.pp.w()+(1-r)/b.pp.w());
+    return result;
+  }
 };
-VertexInfo operator*(const VertexInfo& v, const float& r);
-VertexInfo operator*(const float& r, const VertexInfo& v);
-VertexInfo operator+(const VertexInfo& a, const VertexInfo& b);
-VertexInfo operator-(const VertexInfo& a, const VertexInfo& b);
 
 class Geometry
 {
@@ -397,7 +402,7 @@ private:
   VertexInfo VertexShader(VertexInfo v);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
-  void Clip(QVector4D A, bool dir, QVector<QVector3D> g, GI i, bool& dirty);
+  void Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool& dirty);
 };
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x);
