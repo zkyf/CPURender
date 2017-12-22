@@ -111,8 +111,8 @@ CPURenderer::~CPURenderer()
 
 uchar* CPURenderer::Render()
 {
-  float epsy = 0.1/size.height();
-  float epsx = 0.1/size.width();
+  double epsy = 0.1/size.height();
+  double epsx = 0.1/size.width();
   colorBuffer.Clear();
   depthBuffer.Clear();
 
@@ -146,7 +146,7 @@ uchar* CPURenderer::Render()
         vecs.push_back(i->vecs[v].tp);
       }
       bool dirty;
-      Clip(QVector4D(0, 0, 1, 0), false, vecs, i, dirty);
+      Clip(QVector4D(0, 0, 1, 0), false, vecs, i, dirty, false);
       //qDebug() << "after: " << *i;
 
       if(dirty && i->vecs.size()>0)
@@ -254,18 +254,18 @@ uchar* CPURenderer::Render()
     QVector4D v0=i->vecs[0].pp;
     QVector4D v1=i->vecs[1].pp;
     QVector4D v2=i->vecs[2].pp;
-    Mat A(2, 2, CV_32F, Scalar::all(0));
-    A.at<float>(0, 0)=v2.x()-v0.x();
-    A.at<float>(0, 1)=v2.y()-v0.y();
-    A.at<float>(1, 0)=v2.x()-v1.x();
-    A.at<float>(1, 1)=v2.y()-v1.y();
-    Mat b(2, 1, CV_32F, Scalar::all(0));
-    b.at<float>(0, 0)=v2.z()-v0.z();
-    b.at<float>(1, 0)=v2.z()-v1.z();
+    Mat A(2, 2, CV_64F, Scalar::all(0));
+    A.at<double>(0, 0)=v2.x()-v0.x();
+    A.at<double>(0, 1)=v2.y()-v0.y();
+    A.at<double>(1, 0)=v2.x()-v1.x();
+    A.at<double>(1, 1)=v2.y()-v1.y();
+    Mat b(2, 1, CV_64F, Scalar::all(0));
+    b.at<double>(0, 0)=v2.z()-v0.z();
+    b.at<double>(1, 0)=v2.z()-v1.z();
     Mat dxy=A.inv()*b;
 
-    i->dz = dxy.at<float>(0, 0)/size.width()*2;
-    i->dzy = dxy.at<float>(1, 0)/size.height()*2;
+    i->dz = dxy.at<double>(0, 0)/size.width()*2;
+    i->dzy = dxy.at<double>(1, 0)/size.height()*2;
     ////qDebug() << "geo " << *i;
     ////qDebug() << "dz=" << i->dz;
   }
@@ -325,7 +325,7 @@ uchar* CPURenderer::Render()
 
     int topyy=ToScreenY(edgeList[nowe].geo->vecs[edgeList[nowe].tid].pp.y());
     if(topyy<0) topyy=0;
-    float topy=ToProjY(topyy);
+    double topy=ToProjY(topyy);
 
     Scanline scanline;
     //qDebug() << "topy=";
@@ -346,7 +346,7 @@ uchar* CPURenderer::Render()
       //qDebug() << "geo->vecs[tid].pp.y()-topy=" << geo->vecs[tid].pp.y()-topy << "geo->vecs[bid].pp.y()-nexty=" << geo->vecs[bid].pp.y()-topy;
       if(geo->vecs[tid].pp.y()>=topy && geo->vecs[bid].pp.y()<=topy)
       {
-        float r=(topy-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+        double r=(topy-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
 
         ScanlinePoint np(QVector3D(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp));
         np.v = VertexInfo::Intersect(geo->vecs[tid], geo->vecs[bid], r);
@@ -367,7 +367,7 @@ uchar* CPURenderer::Render()
     for(int yy=topyy; yy<size.height(); yy++)
     {
       bool error=false;
-      float y=ToProjY(yy);
+      double y=ToProjY(yy);
       for(GI i=geos.begin(); i!=geos.end(); i++)
       {
         i->inout=false;
@@ -404,7 +404,7 @@ uchar* CPURenderer::Render()
           else nextxx=size.width();
           if(error) nextxx=ToScreenX(scanline[pid].x())+1;
           if(nextxx>=size.width()) nextxx=size.width();
-          float nowz=p.z();
+          double nowz=p.z();
           for(int xx=ToScreenX(p.x()); xx<nextxx; xx++)
           {
             //          ////qDebug() << "xx=" << xx;
@@ -412,7 +412,7 @@ uchar* CPURenderer::Render()
             ng.pos.setX(ToProjX(xx));
             ng.pos.setY(y);
             ng.index=xx+yy*size.width();
-            float r=(ng.pos.x()-scanline[pid].x())/(scanline[pid+1].x()-scanline[pid].x());
+            double r=(ng.pos.x()-scanline[pid].x())/(scanline[pid+1].x()-scanline[pid].x());
             //          if(yy=size.height()/2)
             //          {
             //            ////qDebug() << "now geo=" << s[pid].geo->name << "xx=" << xx << "nowz=" << nowz << s[pid+1].z() << s[pid].z() << s[pid+1].x() << s[pid].x();
@@ -436,7 +436,7 @@ uchar* CPURenderer::Render()
 
       // generate new scanline
       {
-        float nexty=ToProjY(yy+1);
+        double nexty=ToProjY(yy+1);
         for(int pid=0; pid<scanline.size(); pid++)
         {
           ScanlinePoint& p=scanline[pid];
@@ -458,7 +458,7 @@ uchar* CPURenderer::Render()
             p.setY(p.y()-2.0/size.height());
             p.setZ(p.z()-p.dx*geo->dz/(2.0/size.width())-geo->dzy);
 
-            float r = (p.y()-geo->vecs[e.bid].pp.y()) / (geo->vecs[e.tid].pp.y()-geo->vecs[e.bid].pp.y());
+            double r = (p.y()-geo->vecs[e.bid].pp.y()) / (geo->vecs[e.tid].pp.y()-geo->vecs[e.bid].pp.y());
             p.v = VertexInfo::Intersect(geo->vecs[e.tid], geo->vecs[e.bid], r);
           }
         }
@@ -489,7 +489,7 @@ uchar* CPURenderer::Render()
           }
           if(geo->vecs[tid].pp.y()>=nexty && geo->vecs[bid].pp.y()<=nexty)
           {
-            float r=(nexty-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+            double r=(nexty-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
 
             ScanlinePoint np(QVector3D(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp));
             np.geo=geo;
@@ -584,22 +584,22 @@ void CPURenderer::AddGeometry(const Geometry &geo)
   input.push_back(geo);
 }
 
-int CPURenderer::ToScreenX(float x)
+int CPURenderer::ToScreenX(double x)
 {
   return (int)((x+1.0)/2*size.width());
 }
 
-int CPURenderer::ToScreenY(float y)
+int CPURenderer::ToScreenY(double y)
 {
   return (int)((-y+1.0)/2*size.height());
 }
 
-float CPURenderer::ToProjX(int x)
+double CPURenderer::ToProjX(int x)
 {
   return x*1.0/size.width()*2-1.0;
 }
 
-float CPURenderer::ToProjY(int y)
+double CPURenderer::ToProjY(int y)
 {
   return -(y*1.0/size.height()*2-1.0);
 }
@@ -665,7 +665,7 @@ void CPURenderer::AddLight(Light light)
   lights.push_back(light);
 }
 
-void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &dirty)
+void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &dirty, bool pers)
 {
   if(g.size()<3) return;
   if(g.size()!=i->vecs.size()) return;
@@ -676,7 +676,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &
   }
 
   bool lastStatus = (QVector4D::dotProduct(A, g.last())<0) ^ dir;
-  QVector<float> result;
+  QVector<double> result;
   for(int i=0; i<g.size(); i++)
   {
     if((QVector4D::dotProduct(A, g[i])<0) ^ dir)
@@ -687,7 +687,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &
         QVector4D t(-g[i]+g[(i+g.size()-1)%g.size()]);
         t.setW(0);
         QVector4D p0(g[i]);
-        float k=QVector4D::dotProduct(-A, p0)/QVector4D::dotProduct(A, t);
+        double k=QVector4D::dotProduct(-A, p0)/QVector4D::dotProduct(A, t);
         //qDebug() << "out-in point:" << p0+k*t << QVector4D::dotProduct(p0+k*t, A);
         result.push_back(k);
       }
@@ -704,7 +704,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &
         QVector4D t(-g[i]+g[(i+g.size()-1)%g.size()]);
         t.setW(0);
         QVector4D p0(g[i]);
-        float k=QVector4D::dotProduct(-A, p0)/QVector4D::dotProduct(A, t);
+        double k=QVector4D::dotProduct(-A, p0)/QVector4D::dotProduct(A, t);
         //qDebug() << "in-out point:" << p0+k*t << QVector4D::dotProduct(p0+k*t, A);
         result.push_back(-k);
       }
@@ -730,7 +730,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &
       else if(result[v]>0)
       {
         VertexInfo nf;
-        nf = VertexInfo::Intersect(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()], i->vecs[v], result[v]);
+        nf = VertexInfo::Intersect(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()], i->vecs[v], result[v], pers);
         ng.push_back(nf);
 
         ng.push_back(i->vecs[v]);
@@ -739,7 +739,7 @@ void CPURenderer::Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool &
       else if(result[v]>-1)
       {
         VertexInfo nf;
-        nf = VertexInfo::Intersect(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()], i->vecs[v], -result[v]);
+        nf = VertexInfo::Intersect(i->vecs[(v+i->vecs.size()-1)%i->vecs.size()], i->vecs[v], -result[v], pers);
         ng.push_back(nf);
         dirty=true;
       }
@@ -758,7 +758,7 @@ int CPURenderer::AddTexture(QImage text)
   return textures.size()-1;
 }
 
-ColorPixel CPURenderer::Sample(int tid, float u, float v, bool bi)
+ColorPixel CPURenderer::Sample(int tid, double u, double v, bool bi)
 {
   u=u+(int)u; if(u<0) u+=1.0; u-=(int)u;
   v=v+(int)v; if(v<0) v+=1.0; v-=(int)v;
@@ -780,16 +780,16 @@ ColorPixel CPURenderer::Sample(int tid, float u, float v, bool bi)
     QColor lb = textures[tid].pixelColor(ll, (tt+1)%h);
     QColor rb = textures[tid].pixelColor((ll+1)%w, (tt+1)%h);
 
-    float uu=u*(w-1);
-    float vv=(1-v)*(h-1);
+    double uu=u*(w-1);
+    double vv=(1-v)*(h-1);
 
-    float ur=uu-ll;
-    float vr=vv-tt;
+    double ur=uu-ll;
+    double vr=vv-tt;
 
-    float ltr = (1-ur)*(1-vr);
-    float rtr = ur*(1-vr);
-    float lbr = (1-ur)*vr;
-    float rbr = ur*vr;
+    double ltr = (1-ur)*(1-vr);
+    double rtr = ur*(1-vr);
+    double lbr = (1-ur)*vr;
+    double rbr = ur*vr;
 
     return ColorPixel(
           lt.redF()*ltr+rt.redF()*rtr+lb.redF()*lbr+rb.redF()*rbr,
@@ -804,7 +804,7 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
 {
   QVector4D pp(v.p, 1.0);
   pp = projection * camera.toMatrix() * transform.toMatrix() * pp;
-  if(fabs(pp.w())<1e-3) pp.setW(1e-2);
+  if(fabs(pp.w())<1e-5) pp.setW(1e-5);
 
   QVector4D tp(v.p, 1.0);
   tp = camera.toMatrix() * transform.toMatrix() * tp;
@@ -819,7 +819,9 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
   nv.pp.setX(pp.x()/pp.w());
   nv.pp.setY(pp.y()/pp.w());
   nv.pp.setZ(pp.z()/pp.w());
-  nv.pp.setW(pp.w());
+  nv.pp.setW(1.0/pp.w());
+
+  nv.ptc = nv.tc/pp.w();
 
   nv.wp=QVector3D(wp);
   return nv;
@@ -827,9 +829,9 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
 
 void CPURenderer::FragmentShader(DepthFragment &frag)
 {
-  const float ar=0.2;
-  const float dr=0.3;
-  const float sr=0.5;
+  const double ar=0.2;
+  const double dr=0.3;
+  const double sr=0.5;
   GI geo = frag.geo;
   frag.color = geo->ambient;
   frag.v.n.normalize();
@@ -840,17 +842,17 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     QVector3D reflectDir = lightDir+2*(frag.v.n-lightDir);
     QVector3D h = ((viewDir+lightDir)/2).normalized();
     ColorPixel a = geo->ambient;
-    float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
+    double dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
     if(dd<0) dd=-dd;
     ColorPixel d = geo->diffuse;
     if(geo->text>=0)
     {
-      d=Sample(geo->text, frag.v.tc.x(), frag.v.tc.y(), true);
+      d=Sample(geo->text, frag.v.ptc.x()/frag.v.pp.w(), frag.v.ptc.y()/frag.v.pp.w(), true);
       a=d;
     }
     a=a*ar;
     d=d*dd;
-    float ss = QVector3D::dotProduct(reflectDir, viewDir);
+    double ss = QVector3D::dotProduct(reflectDir, viewDir);
     if(ss<0) ss=0; ss=pow(ss, 16);
     if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
     if(ss<0) ss=0;

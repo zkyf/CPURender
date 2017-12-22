@@ -27,12 +27,12 @@ using namespace cv;
 class ColorPixel
 {
 public:
-  float r;
-  float g;
-  float b;
-  float a;
+  double r;
+  double g;
+  double b;
+  double a;
 
-  ColorPixel(float rr=0, float gg=0, float bb=0, float aa=0) :
+  ColorPixel(double rr=0, double gg=0, double bb=0, double aa=0) :
     r(rr), g(gg), b(bb), a(aa) {}
   ColorPixel(QVector3D c) { r=c.x(); g=c.y(); b=c.z(); a=1.0; }
   ColorPixel operator=(const QVector3D& c) { r=c.x(); g=c.y(); b=c.z(); a=1.0; return *this; }
@@ -49,8 +49,8 @@ public:
 
   ColorPixel operator+(ColorPixel& c)
   {
-    float r1 = a/(a+c.a*(1-a));
-    float r2 = 1-r1;
+    double r1 = a/(a+c.a*(1-a));
+    double r2 = 1-r1;
     return ColorPixel(
           r*r1+c.r*r2,
           g*r1+c.g*r2,
@@ -64,7 +64,7 @@ public:
     return *this;
   }
 
-  ColorPixel operator*(const float& c)
+  ColorPixel operator*(const double& c)
   {
     return ColorPixel(r*c, g*c, b*c, a);
   }
@@ -85,6 +85,8 @@ public:
   QVector3D n;
   // texture co-ordinate
   QVector2D tc;
+  // texture projected
+  QVector2D ptc;
   // transformed position in Ether frame
   QVector3D wp;
 
@@ -98,7 +100,7 @@ public:
   VertexInfo() {}
   VertexInfo(QVector3D _p, QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0)) : p(_p), n(_n), tc(_tc) {}
 
-  static VertexInfo Intersect(VertexInfo a, VertexInfo b, float r)
+  static VertexInfo Intersect(VertexInfo a, VertexInfo b, double r, bool pers=true)
   {
     VertexInfo result;
     result.p = r*a.p+(1-r)*b.p;
@@ -107,7 +109,11 @@ public:
     result.tp = r*a.tp+(1-r)*b.tp;
     result.pp = r*a.pp+(1-r)*b.pp;
 
-    result.tc = (r*a.tc/a.pp.w()+(1-r)*b.tc/b.pp.w())/(r/a.pp.w()+(1-r)/b.pp.w());
+//    if(pers)
+//      result.tc = (r*a.tc/a.pp.w()+(1-r)*b.tc/b.pp.w())/(r/a.pp.w()+(1-r)/b.pp.w());
+//    else
+      result.tc=r*a.tc+(1-r)*b.tc;
+      result.ptc=r*a.ptc+(1-r)*b.ptc;
 //    result.n = (r*a.n/a.pp.w()+(1-r)*b.n/b.pp.w())/(r/a.pp.w()+(1-r)/b.pp.w());
     return result;
   }
@@ -124,11 +130,11 @@ public:
   ColorPixel diffuse;
   ColorPixel specular;
 
-  float top;
-  float bottom;
-  float dz;
-  float dzy;
-  float ns;
+  double top;
+  double bottom;
+  double dz;
+  double dzy;
+  double ns;
   int text=-1;
   int stext=-1;
   bool inout;
@@ -143,7 +149,7 @@ public:
     }
   }
 
-  float Top()
+  double Top()
   {
     top = -1e20;
     for(int i=0; i<vecs.size(); i++)
@@ -157,7 +163,7 @@ public:
     return top;
   }
 
-  float Bottom()
+  double Bottom()
   {
     bottom = 1e20;
     for(int i=0; i<vecs.size(); i++)
@@ -328,7 +334,7 @@ public:
   int prev;
   int next;
   int e;
-  float dx;
+  double dx;
   VertexInfo v;
 
   ScanlinePoint(QVector3D p=QVector3D(0, 0, 0)):QVector3D(p) {}
@@ -372,14 +378,14 @@ public slots:
 
   // textures
   int AddTexture(QImage text);
-  ColorPixel Sample(int tid, float u, float v, bool bi=false);
+  ColorPixel Sample(int tid, double u, double v, bool bi=false);
 
   uchar* Render();
 
-  int ToScreenY(float y);
-  int ToScreenX(float x);
-  float ToProjY(int y);
-  float ToProjX(int x);
+  int ToScreenY(double y);
+  int ToScreenX(double x);
+  double ToProjY(int y);
+  double ToProjX(int x);
 
   DepthPixel DepthPixelAt(int x, int y);
 signals:
@@ -391,8 +397,8 @@ public:
 private:
   QSize size;
 
-  float nearPlane;
-  float farPlane;
+  double nearPlane;
+  double farPlane;
   QMatrix4x4 projection;
 
   Camera3D camera;
@@ -408,7 +414,7 @@ private:
   VertexInfo VertexShader(VertexInfo v);
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
-  void Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool& dirty);
+  void Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool& dirty, bool pers=true);
 };
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x);
