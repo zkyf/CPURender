@@ -68,6 +68,11 @@ public:
   {
     return ColorPixel(r*c, g*c, b*c, a);
   }
+
+  ColorPixel operator*(const ColorPixel& c)
+  {
+    return ColorPixel(r*c.r, g*c.g, b*c.b, a*c.a);
+  }
 };
 QDebug& operator<<(QDebug& s, const ColorPixel& p);
 
@@ -125,6 +130,7 @@ public:
   float dzy;
   float ns;
   int text=-1;
+  int stext=-1;
   bool inout;
 
   QImage dt;

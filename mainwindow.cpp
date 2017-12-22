@@ -152,7 +152,7 @@ void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
 {
   QPointF pp = ui->graphicsView->mapToScene(event->pos());
   qDebug() << "clicked @" << event->pos() << "on scene @" << pp;
-  qDebug() << render.DepthPixelAt(pp.x(), pp.y());
+  qDebug() << render.DepthPixelAt(pp.x(), pp.y()).chain;
 }
 
 void MainWindow::on_bLoadOBJ_clicked()

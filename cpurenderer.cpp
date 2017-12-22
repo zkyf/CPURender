@@ -42,7 +42,7 @@ QDebug& operator<<(QDebug& s, const Geometry& g)
   s << "Geometry " << g.name << " @ " << g.vecs.size() << endl;
   for(int i=0; i<g.vecs.size(); i++)
   {
-    s << "  vecs #" << i << ":" << g.vecs[i].p  << g.vecs[i].pp << g.vecs[i].n << g.vecs[i].tp << endl;
+    s << "  vecs #" << i << ":" << " p:" << g.vecs[i].p << " pp:" << g.vecs[i].pp << " n:" << g.vecs[i].n << " tp:" << g.vecs[i].tp << " tc:" << g.vecs[i].tc << endl;
   }
   return s;
 }
@@ -71,7 +71,8 @@ QDebug& operator<<(QDebug& s, const ColorPixel& p)
 
 QDebug& operator<<(QDebug& s, const DepthFragment& f)
 {
-  s << f.geo->name << " color=" << f.color << " pos=" << f.pos << " normal=" << f.v.n << " tc=" << f.v.tc;
+  s << f.geo->name << " color=" << f.color << " pos=" << f.pos << " normal=" << f.v.n << " tc=" << f.v.tc << endl;
+  s << *f.geo;
   return s;
 }
 
@@ -854,13 +855,14 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
     if(ss<0) ss=0;
     ColorPixel s = geo->specular*ss;
-    frag.color.r = a.r+(d.r+s.r)*lights[i].color.x();
-    frag.color.g = a.g+(d.g+s.g)*lights[i].color.y();
-    frag.color.b = a.b+(d.b+s.b)*lights[i].color.z();
+    frag.color.r = (a.r+d.r+s.r)*lights[i].color.x();
+    frag.color.g = (a.g+d.g+s.g)*lights[i].color.y();
+    frag.color.b = (a.b+d.b+s.b)*lights[i].color.z();
     frag.color.a = (a.a*ar+d.a*dr+s.a*sr);
 //    frag.color=d;
 //    frag.lightDir=lightDir;
   }
 //  frag.color.a=1.0;
-//  frag.color=(frag.v.n+QVector3D(1.0, 1.0, 1.0))/2;
+//  frag.color=(frag.v.tp+QVector3D(1.0, 1.0, 1.0))/2;
+//  frag.color=QVector3D(frag.v.tc, 1.0);
 }
