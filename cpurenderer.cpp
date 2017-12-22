@@ -610,10 +610,12 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
   const float sr=0.5;
   GI geo = frag.geo;
   frag.color = geo->ambient;
+  frag.v.n.normalize();
   for(int i=0; i<lights.size(); i++)
   {
     QVector3D lightDir = (lights[i].pos-frag.v.wp).normalized();
     QVector3D viewDir = (camera.translation()-frag.v.wp).normalized();
+    QVector3D reflectDir = lightDir+2*(frag.v.n-lightDir);
     QVector3D h = ((viewDir+lightDir)/2).normalized();
     ColorPixel a = geo->ambient*ar;
     float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
@@ -623,7 +625,8 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     {
       d=Sample(geo->text, frag.v.tc.x(), frag.v.tc.y())*dd;
     }
-    float ss = pow(QVector3D::dotProduct(h, frag.v.n.normalized()), 16)*sr/pow((lights[i].pos-frag.v.wp).length(), 2);
+    float ss = QVector3D::dotProduct(reflectDir, viewDir);
+    if(ss<0) ss=0; ss=pow(ss, 16);
     if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
     if(ss<0) ss=0;
     ColorPixel s = geo->specular*ss;

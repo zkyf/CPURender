@@ -277,6 +277,7 @@ void MyMesh::Render(CPURenderer *render)
     geo.diffuse=faces[fid].mat.kd;
     geo.specular=faces[fid].mat.ks;
     geo.text=faces[fid].mat.mdid;
+    geo.ns=faces[fid].mat.ns;
     render->AddGeometry(geo);
   }
 
@@ -773,6 +774,11 @@ MyModel LoadOBJ(QString path)
   MyMesh mesh;
   QVector<MyMaterial> mtllib;
   int nowMat=-1;
+  MyMaterial defaultMat;
+  defaultMat.ka = QVector3D(0.0, 1.0, 0.0);
+  defaultMat.kd = QVector3D(0.0, 1.0, 0.0);
+  defaultMat.ks = QVector3D(1.0, 1.0, 1.0);
+  defaultMat.ns = 16.0;
 
   while(!in.atEnd())
   {
@@ -830,9 +836,7 @@ MyModel LoadOBJ(QString path)
       if(nowMat>=0) face.mat=mtllib[nowMat];
       else
       {
-        face.mat.ka = QVector3D(0.0, 1.0, 0.0);
-        face.mat.kd = QVector3D(0.0, 1.0, 0.0);
-        face.mat.ks = QVector3D(1.0, 1.0, 1.0);
+        face.mat=defaultMat;
       }
       mesh.AddFace(face);
     }
