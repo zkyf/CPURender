@@ -277,6 +277,7 @@ void MyMesh::Render(CPURenderer *render)
     geo.diffuse=faces[fid].mat.kd;
     geo.specular=faces[fid].mat.ks;
     geo.text=faces[fid].mat.mdid;
+    geo.stext=faces[fid].mat.msid;
     geo.ns=faces[fid].mat.ns;
     render->AddGeometry(geo);
   }
@@ -952,6 +953,11 @@ QVector<MyMaterial> LoadMTL(QString path)
     {
       dirty=true;
       in >> mat.map_kd;
+    }
+    else if(c=="MAP_KS")
+    {
+      dirty=true;
+      in >> mat.map_ks;
     }
   }
 

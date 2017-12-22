@@ -811,7 +811,7 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
   v.tp.setX(tp.x()); v.tp.setY(tp.y()); v.tp.setZ(tp.z());
 
   QVector4D wp(v.p, 1.0);
-  wp = transform.toMatrix() * wp;
+  wp = transform.toMatrix() * wp /pp.w();
 
   VertexInfo nv=v;
   nv.n = transform.rotation().toRotationMatrix().transposed()*nv.n;
@@ -837,9 +837,10 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
   frag.v.n.normalize();
   for(int i=0; i<lights.size(); i++)
   {
-    QVector3D lightDir = (lights[i].pos-frag.v.wp).normalized();
-    QVector3D viewDir = (camera.translation()-frag.v.wp).normalized();
-    QVector3D reflectDir = lightDir+2*(frag.v.n-lightDir);
+    QVector3D lightDir = (lights[i].pos-frag.v.wp/frag.v.pp.w()).normalized();
+    QVector3D viewDir = (camera.translation()-frag.v.wp/frag.v.pp.w()).normalized();
+    float rl = QVector3D::dotProduct(lightDir, frag.v.n);
+    QVector3D reflectDir = lightDir+2*(rl*frag.v.n-lightDir);
     QVector3D h = ((viewDir+lightDir)/2).normalized();
     ColorPixel a = geo->ambient;
     double dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
@@ -854,9 +855,12 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     d=d*dd;
     double ss = QVector3D::dotProduct(reflectDir, viewDir);
     if(ss<0) ss=0; ss=pow(ss, 16);
-    if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
-    if(ss<0) ss=0;
     ColorPixel s = geo->specular*ss;
+    if(geo->stext>=0)
+    {
+      ColorPixel sm = Sample(geo->stext, frag.v.ptc.x()/frag.v.pp.w(), frag.v.ptc.y()/frag.v.pp.w(), true);
+      s=s*sm;
+    }
     frag.color.r = (a.r+d.r+s.r)*lights[i].color.x();
     frag.color.g = (a.g+d.g+s.g)*lights[i].color.y();
     frag.color.b = (a.b+d.b+s.b)*lights[i].color.z();

@@ -2,4 +2,5 @@
 
 newmtl White
 Kd 1.000000 1.000000 1.000000
-map_Kd papyrus.jpg
+map_Kd container2.png
+map_Ks container2_specular.png
