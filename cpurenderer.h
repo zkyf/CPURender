@@ -362,7 +362,7 @@ public slots:
   void Resize(QSize w);
   QSize Size();
   void AddLight(Light light);
-  void ClearGeometry() { input.clear(); }
+  void ClearGeometry() { input.clear(); textures.clear(); }
 
   // textures
   int AddTexture(QImage text);

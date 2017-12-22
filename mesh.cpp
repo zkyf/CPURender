@@ -854,6 +854,11 @@ MyModel LoadOBJ(QString path)
           mesh.textures.push_back(QImage(fileDir+"/"+mtllib[i].map_kd));
           mtllib[i].mdid=mesh.textures.size()-1;
         }
+        if(mtllib[i].map_ks!="")
+        {
+          mesh.textures.push_back(QImage(fileDir+"/"+mtllib[i].map_ks));
+          mtllib[i].msid=mesh.textures.size()-1;
+        }
       }
     }
     else if(c=="USEMTL")
