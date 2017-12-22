@@ -291,7 +291,7 @@ QVector3D MyMesh::Normal(int fid)
 {
   MyFace& face=faces[fid];
   if(face.vindex.size()<3) return QVector3D(0, 0, 0);
-  return QVector3D::crossProduct(vertices[face.vindex[2]]-vertices[face.vindex[1]], vertices[face.vindex[0]]-vertices[face.vindex[1]]).normalized();
+  return QVector3D::crossProduct(vertices[face.vindex[2]]-vertices[face.vindex[1]], vertices[face.vindex[0]]-vertices[face.vindex[1]]);
 }
 
 void MyMesh::Smooth()

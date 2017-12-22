@@ -573,72 +573,9 @@ DepthPixel CPURenderer::DepthPixelAt(int x, int y)
   return depthBuffer.buffer[x+y*size.width()];
 }
 
-VertexInfo CPURenderer::VertexShader(VertexInfo v)
-{
-  QVector4D pp(v.p, 1.0);
-  pp = projection * camera.toMatrix() * transform.toMatrix() * pp;
-  if(fabs(pp.w())<1e-3) pp.setW(1e-2);
-
-  QVector4D tp(v.p, 1.0);
-  tp = camera.toMatrix() * transform.toMatrix() * tp;
-  v.tp.setX(tp.x()); v.tp.setY(tp.y()); v.tp.setZ(tp.z());
-
-  QVector4D wp(v.p, 1.0);
-  wp = transform.toMatrix() * wp;
-
-  VertexInfo nv=v;
-  nv.n = transform.rotation().toRotationMatrix().transposed()*nv.n;
-//  nv.n.setZ(-nv.n.z());
-  nv.pp.setX(pp.x()/pp.w());
-  nv.pp.setY(pp.y()/pp.w());
-  nv.pp.setZ(pp.z()/pp.w());
-  nv.pp.setW(pp.w());
-
-  nv.wp=QVector3D(wp);
-  return nv;
-}
-
 void CPURenderer::GeometryShader(Geometry &geo)
 {
 
-}
-
-void CPURenderer::FragmentShader(DepthFragment &frag)
-{
-  const float ar=0.2;
-  const float dr=0.3;
-  const float sr=0.5;
-  GI geo = frag.geo;
-  frag.color = geo->ambient;
-  frag.v.n.normalize();
-  for(int i=0; i<lights.size(); i++)
-  {
-    QVector3D lightDir = (lights[i].pos-frag.v.wp).normalized();
-    QVector3D viewDir = (camera.translation()-frag.v.wp).normalized();
-    QVector3D reflectDir = lightDir+2*(frag.v.n-lightDir);
-    QVector3D h = ((viewDir+lightDir)/2).normalized();
-    ColorPixel a = geo->ambient*ar;
-    float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
-    if(dd<0) dd=-dd;
-    ColorPixel d = geo->diffuse*dd;
-    if(geo->text>=0)
-    {
-      d=Sample(geo->text, frag.v.tc.x(), frag.v.tc.y())*dd;
-    }
-    float ss = QVector3D::dotProduct(reflectDir, viewDir);
-    if(ss<0) ss=0; ss=pow(ss, 16);
-    if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
-    if(ss<0) ss=0;
-    ColorPixel s = geo->specular*ss;
-    frag.color.r = a.r+(d.r+s.r)*lights[i].color.x();
-    frag.color.g = a.g+(d.g+s.g)*lights[i].color.y();
-    frag.color.b = a.b+(d.b+s.b)*lights[i].color.z();
-    frag.color.a = (a.a*ar+d.a*dr+s.a*sr);
-//    frag.color=d;
-//    frag.lightDir=lightDir;
-  }
-//  frag.color.a=1.0;
-//  frag.color=(frag.v.n+QVector3D(1.0, 1.0, 1.0))/2;
 }
 
 void CPURenderer::AddGeometry(const Geometry &geo)
@@ -822,10 +759,108 @@ int CPURenderer::AddTexture(QImage text)
 
 ColorPixel CPURenderer::Sample(int tid, float u, float v, bool bi)
 {
-  int ll=u*(textures[tid].width()-1);
-  ll = (ll%textures[tid].width() + textures[tid].width()) % textures[tid].width();
-  int tt=(1-v)*(textures[tid].height()-1);
-  tt = (tt%textures[tid].height()+textures[tid].height()) % textures[tid].height();
-  QColor c = textures[tid].pixelColor(ll, tt);
-  return ColorPixel(c.redF(),  c.greenF(), c.blueF(), c.alphaF());
+  u=u+(int)u; if(u<0) u+=1.0; u-=(int)u;
+  v=v+(int)v; if(v<0) v+=1.0; v-=(int)v;
+
+  int w=textures[tid].width();
+  int h=textures[tid].height();
+  int ll=u*(w-1);
+  ll = (ll % w + w) % w;
+  int tt=(1-v)*(h-1);
+  tt = (tt % h + h) % h;
+  QColor lt = textures[tid].pixelColor(ll, tt);
+  if(!bi)
+  {
+    return ColorPixel(lt.redF(),  lt.greenF(), lt.blueF(), lt.alphaF());
+  }
+  else
+  {
+    QColor rt = textures[tid].pixelColor((ll+1)%w, tt);
+    QColor lb = textures[tid].pixelColor(ll, (tt+1)%h);
+    QColor rb = textures[tid].pixelColor((ll+1)%w, (tt+1)%h);
+
+    float uu=u*(w-1);
+    float vv=(1-v)*(h-1);
+
+    float ur=uu-ll;
+    float vr=vv-tt;
+
+    float ltr = (1-ur)*(1-vr);
+    float rtr = ur*(1-vr);
+    float lbr = (1-ur)*vr;
+    float rbr = ur*vr;
+
+    return ColorPixel(
+          lt.redF()*ltr+rt.redF()*rtr+lb.redF()*lbr+rb.redF()*rbr,
+          lt.greenF()*ltr+rt.greenF()*rtr+lb.greenF()*lbr+rb.greenF()*rbr,
+          lt.blueF()*ltr+rt.blueF()*rtr+lb.blueF()*lbr+rb.blueF()*rbr,
+          lt.alphaF()*ltr+rt.alphaF()*rtr+lb.alphaF()*lbr+rb.alphaF()*rbr
+          );
+  }
+}
+
+VertexInfo CPURenderer::VertexShader(VertexInfo v)
+{
+  QVector4D pp(v.p, 1.0);
+  pp = projection * camera.toMatrix() * transform.toMatrix() * pp;
+  if(fabs(pp.w())<1e-3) pp.setW(1e-2);
+
+  QVector4D tp(v.p, 1.0);
+  tp = camera.toMatrix() * transform.toMatrix() * tp;
+  v.tp.setX(tp.x()); v.tp.setY(tp.y()); v.tp.setZ(tp.z());
+
+  QVector4D wp(v.p, 1.0);
+  wp = transform.toMatrix() * wp;
+
+  VertexInfo nv=v;
+  nv.n = transform.rotation().toRotationMatrix().transposed()*nv.n;
+//  nv.n.setZ(-nv.n.z());
+  nv.pp.setX(pp.x()/pp.w());
+  nv.pp.setY(pp.y()/pp.w());
+  nv.pp.setZ(pp.z()/pp.w());
+  nv.pp.setW(pp.w());
+
+  nv.wp=QVector3D(wp);
+  return nv;
+}
+
+void CPURenderer::FragmentShader(DepthFragment &frag)
+{
+  const float ar=0.2;
+  const float dr=0.3;
+  const float sr=0.5;
+  GI geo = frag.geo;
+  frag.color = geo->ambient;
+  frag.v.n.normalize();
+  for(int i=0; i<lights.size(); i++)
+  {
+    QVector3D lightDir = (lights[i].pos-frag.v.wp).normalized();
+    QVector3D viewDir = (camera.translation()-frag.v.wp).normalized();
+    QVector3D reflectDir = lightDir+2*(frag.v.n-lightDir);
+    QVector3D h = ((viewDir+lightDir)/2).normalized();
+    ColorPixel a = geo->ambient;
+    float dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
+    if(dd<0) dd=-dd;
+    ColorPixel d = geo->diffuse;
+    if(geo->text>=0)
+    {
+      d=Sample(geo->text, frag.v.tc.x(), frag.v.tc.y(), true);
+      a=d;
+    }
+    a=a*ar;
+    d=d*dd;
+    float ss = QVector3D::dotProduct(reflectDir, viewDir);
+    if(ss<0) ss=0; ss=pow(ss, 16);
+    if(QVector3D::dotProduct(h, frag.v.n.normalized())<0) ss/=2.0;
+    if(ss<0) ss=0;
+    ColorPixel s = geo->specular*ss;
+    frag.color.r = a.r+(d.r+s.r)*lights[i].color.x();
+    frag.color.g = a.g+(d.g+s.g)*lights[i].color.y();
+    frag.color.b = a.b+(d.b+s.b)*lights[i].color.z();
+    frag.color.a = (a.a*ar+d.a*dr+s.a*sr);
+//    frag.color=d;
+//    frag.lightDir=lightDir;
+  }
+//  frag.color.a=1.0;
+//  frag.color=(frag.v.n+QVector3D(1.0, 1.0, 1.0))/2;
 }
