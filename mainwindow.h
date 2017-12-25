@@ -44,12 +44,19 @@ private slots:
 
   void on_bOriginal_clicked();
 
+  void on_graphicsView_MouseReleaseEvent(QMouseEvent *);
+
+  void on_graphicsView_MouseMoveEvent(QMouseEvent *);
+
 private:
   Ui::MainWindow *ui;
 
   CPURenderer render;
   MyModel model;
   MyModel original;
+
+  bool pulling;
+  QPointF lastp;
 };
 
 #endif // MAINWINDOW_H

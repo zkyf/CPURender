@@ -841,9 +841,9 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     QVector3D viewDir = (camera.translation()-frag.v.wp/frag.v.pp.w()).normalized();
     float rl = QVector3D::dotProduct(lightDir, frag.v.n);
     QVector3D reflectDir = lightDir+2*(rl*frag.v.n-lightDir);
-    QVector3D h = ((viewDir+lightDir)/2).normalized();
+    QVector3D h = (viewDir+lightDir).normalized();
     ColorPixel a = geo->ambient;
-    double dd = QVector3D::dotProduct(lightDir, frag.v.n.normalized())*dr;
+    double dd = QVector3D::dotProduct(h, frag.v.n.normalized())*dr;
     if(dd<0) dd=-dd;
     ColorPixel d = geo->diffuse;
     if(geo->text>=0)
