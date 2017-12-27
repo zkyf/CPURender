@@ -23,28 +23,12 @@ bool operator< (const DepthFragment& a, const DepthFragment& b) { return a.pos.z
 bool operator<=(const DepthFragment& a, const DepthFragment& b) { return a.pos.z()<=b.pos.z(); }
 bool operator==(const DepthFragment& a, const DepthFragment& b) { return a.pos.z()==b.pos.z(); }
 
-bool operator> (const Geometry& a, const Geometry& b) { return a.top> b.top; }
-bool operator< (const Geometry& a, const Geometry& b) { return a.top< b.top; }
-bool operator>=(const Geometry& a, const Geometry& b) { return a.top>=b.top; }
-bool operator<=(const Geometry& a, const Geometry& b) { return a.top<=b.top; }
-bool operator==(const Geometry& a, const Geometry& b) { return a.top==b.top; }
-
 bool operator< (const EdgeListItem& a, const EdgeListItem& b)
 {
   if(a.geo->vecs[a.tid].pp.y()!=b.geo->vecs[b.tid].pp.y())
     return a.geo->vecs[a.tid].pp.y()<b.geo->vecs[b.tid].pp.y();
   else
     return a.geo->vecs[a.bid].pp.y()<b.geo->vecs[b.bid].pp.y();
-}
-
-QDebug& operator<<(QDebug& s, const Geometry& g)
-{
-  s << "Geometry " << g.name << " @ " << g.vecs.size() << endl;
-  for(int i=0; i<g.vecs.size(); i++)
-  {
-    s << "  vecs #" << i << ":" << " p:" << g.vecs[i].p << " pp:" << g.vecs[i].pp << " n:" << g.vecs[i].n << " tp:" << g.vecs[i].tp << " tc:" << g.vecs[i].tc << endl;
-  }
-  return s;
 }
 
 QDebug& operator<<(QDebug& s, const ScanlinePoint& p)
@@ -60,12 +44,6 @@ QDebug& operator<<(QDebug& s, const Scanline& line)
   {
     s << "  hp #" << i << ":" << line[i] << endl;
   }
-  return s;
-}
-
-QDebug& operator<<(QDebug& s, const ColorPixel& p)
-{
-  s << "(" << p.r << ", " << p.g << ", " << p.b << ", " << p.a << ")";
   return s;
 }
 

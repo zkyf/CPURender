@@ -30,7 +30,9 @@ SOURCES += main.cpp\
     light.cpp \
     transform3d.cpp \
     qgraphicsviewwithmouseevent.cpp \
-    mesh.cpp
+    mesh.cpp \
+    ray.cpp \
+    geometry.cpp
 
 HEADERS  += mainwindow.h \
     cpurenderer.h \
@@ -39,7 +41,9 @@ HEADERS  += mainwindow.h \
     transform3d.h \
     simplemesh.h \
     qgraphicsviewwithmouseevent.h \
-    mesh.h
+    mesh.h \
+    ray.h \
+    geometry.h
 
 FORMS    += mainwindow.ui
 
