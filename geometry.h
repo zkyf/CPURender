@@ -87,6 +87,8 @@ public:
   void SetNormal();
   QVector3D Normal();
   bool IsPlane();
+  bool IsInside(QVector3D p);
+  QVector4D Plane();
 
   friend bool operator> (const Geometry& a, const Geometry& b);
   friend bool operator< (const Geometry& a, const Geometry& b);

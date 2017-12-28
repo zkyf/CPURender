@@ -114,6 +114,11 @@ void MainWindow::on_Render_clicked()
     geo2.vecs.push_back(v4);
     geo2.vecs.push_back(v3);
 
+//    QVector3D p1(0.1, 0.1, -1.5);
+//    QVector3D p2(-1.0, 0.786, -1.5);
+//    QVector3D p3(0, 0, -1);
+//    qDebug() << geo2.IsInside(p1) << geo2.IsInside(p2) << geo2.IsInside(p3);
+
     geo2.SetNormal();
   }
   geo2.ambient = QVector4D(0.0, 1.0, 0.0, 0.8);

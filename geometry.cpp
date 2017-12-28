@@ -2,12 +2,12 @@
 
 /// class Color Pixel
 
-ColorPixel::ColorPixel(double rr=0, double gg=0, double bb=0, double aa=0)
+ColorPixel::ColorPixel(double rr, double gg, double bb, double aa)
   : r(rr), g(gg), b(bb), a(aa) {}
 ColorPixel::ColorPixel(QVector3D c) { r=c.x(); g=c.y(); b=c.z(); a=1.0; }
 ColorPixel::ColorPixel(QVector4D c) { r=c.x(); g=c.y(); b=c.z(); a=c.w(); }
 
-ColorPixel::Clamp()
+void ColorPixel::Clamp()
 {
   if(r<0) r=0; if(r>1) r=1;
   if(g<0) g=0; if(g>1) g=1;
@@ -92,7 +92,7 @@ void Geometry::AddPoints(QVector<QVector3D> vs)
   }
 }
 
-void Geometry::Top()
+double Geometry::Top()
 {
   top = -1e20;
   for(int i=0; i<vecs.size(); i++)
@@ -105,7 +105,7 @@ void Geometry::Top()
   return top;
 }
 
-void Geometry::Bottom()
+double Geometry::Bottom()
 {
   bottom = 1e20;
   for(int i=0; i<vecs.size(); i++)
@@ -121,7 +121,7 @@ void Geometry::Bottom()
 void Geometry::SetNormal()
 {
 //    qDebug() << "vecs.size=" << vecs.size();
-  QVector3D n = Normal;
+  QVector3D n = Normal();
   for(int i=0; i<vecs.size(); i++)
   {
     vecs[i].n = n;
@@ -154,6 +154,35 @@ bool Geometry::IsPlane()
     }
   }
   return true;
+}
+
+bool Geometry::IsInside(QVector3D p)
+{
+  if(!IsPlane()) return false;
+  QVector<QVector3D> vlist;
+  for(int i=0; i<vecs.size(); i++)
+  {
+    vlist.push_back((vecs[i].p-p).normalized());
+  }
+  double sc = 1.0, ss = 0.0;
+  for(int i=0; i<vlist.size(); i++)
+  {
+    int nn = (i+1)%vlist.size();
+    double c = QVector3D::dotProduct(vlist[i], vlist[nn]);
+    double s = QVector3D::crossProduct(vlist[i], vlist[nn]).length();
+    double nc = sc*c-ss*s;
+    double ns = ss*c+sc*s;
+    sc = nc;
+    ss = ns;
+  }
+  if(fabs(ss)>1e-2) return false;
+  return true;
+}
+
+QVector4D Geometry::Plane()
+{
+  QVector4D n(Normal(), 0.0);
+
 }
 
 bool operator> (const Geometry& a, const Geometry& b) { return a.top> b.top; }

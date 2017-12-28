@@ -1,16 +1,22 @@
 #include "ray.h"
 
-Ray::Ray(QVector3D oo = QVector3D(0, 0, 0), QVector3D nn = QVector3D(0, 0, -1))
+Ray::Ray(QVector4D oo, QVector4D nn)
 {
   o=oo;
   n=nn;
 }
 
-VertexInfo Ray::IntersectPlane(QVector4D pi)
+QVector4D Ray::IntersectPlane(QVector4D pi)
 {
+  double pn = QVector4D::dotProduct(pi, n);
+  if(fabs(pn)<1e-3)
+  {
+    return QVector4D(0, 0, 0, 0);
+  }
+  return -QVector4D::dotProduct(pi, o)/pn*n+o;
 }
 
-VertexInfo Ray::IntersectGeo(GI &geo)
+VertexInfo Ray::IntersectGeo(GI geo)
 {
-
+  return VertexInfo();
 }

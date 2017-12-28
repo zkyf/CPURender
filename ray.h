@@ -7,12 +7,12 @@
 class Ray
 {
 public:
-  Ray(QVector3D oo = QVector3D(0, 0, 0), QVector3D nn = QVector3D(0, 0, -1));
+  Ray(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
 
-  QVector3D o;
-  QVector3D n;
+  QVector4D o;
+  QVector4D n;
 
-  VertexInfo IntersectPlane(QVector4D pi);
+  QVector4D IntersectPlane(QVector4D pi);
   VertexInfo IntersectGeo(GI geo);
 };
 
