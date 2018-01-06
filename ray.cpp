@@ -13,7 +13,9 @@ QVector4D Ray::IntersectPlane(QVector4D pi)
   {
     return QVector4D(0, 0, 0, 0);
   }
-  return -QVector4D::dotProduct(pi, o)/pn*n+o;
+  double r = -QVector4D::dotProduct(pi, o)/pn;
+  if(r<0) return QVector4D(0, 0, 0, 0);
+  return r*n+o;
 }
 
 VertexInfo Ray::IntersectGeo(GI geo)

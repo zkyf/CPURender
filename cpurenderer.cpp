@@ -291,7 +291,8 @@ uchar* CPURenderer::Render()
     while(nowe>=0)
     {
       GI geo = edgeList[nowe].geo;
-      if(geo->vecs[edgeList[nowe].tid].pp.y()>1.0 && geo->vecs[edgeList[nowe].bid].pp.y()>1.0)
+//      if(geo->vecs[edgeList[nowe].tid].pp.y()>1.0 && geo->vecs[edgeList[nowe].bid].pp.y()>1.0)
+      if(ToScreenY(geo->vecs[edgeList[nowe].tid].pp.y())<0 && ToScreenY(geo->vecs[edgeList[nowe].bid].pp.y())<0)
       {
         nowe--;
       }
@@ -311,20 +312,20 @@ uchar* CPURenderer::Render()
     {
       // find points for initial scanline
 
-      //qDebug() << "nowe=" << nowe << " on " << edgeList[nowe].geo->name << " tid=" << edgeList[nowe].tid << " bid=" << edgeList[nowe].bid;
+//      qDebug() << "nowe=" << nowe << " on " << edgeList[nowe].geo->name << " tid=" << edgeList[nowe].tid << " bid=" << edgeList[nowe].bid;
       GI geo=edgeList[nowe].geo;
       int tid=edgeList[nowe].tid;
       int bid=edgeList[nowe].bid;
       if(ToScreenY(geo->vecs[tid].pp.y())==ToScreenY(geo->vecs[bid].pp.y()))
       {
-        //qDebug() << "ignore horizontal edge";
+//        qDebug() << "ignore horizontal edge";
         nowe--;
         continue;
       }
       //qDebug() << "geo->vecs[tid].pp.y()-topy=" << geo->vecs[tid].pp.y()-topy << "geo->vecs[bid].pp.y()-nexty=" << geo->vecs[bid].pp.y()-topy;
-      if(geo->vecs[tid].pp.y()>=topy && geo->vecs[bid].pp.y()<=topy)
+      if(ToScreenY(geo->vecs[tid].pp.y())<=topyy && ToScreenY(geo->vecs[bid].pp.y())>=topyy)
       {
-        double r=(topy-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+        double r=(topyy-ToScreenY(geo->vecs[bid].pp.y()))*1.0/(ToScreenY(geo->vecs[tid].pp.y())-ToScreenY(geo->vecs[bid].pp.y()));
 
         ScanlinePoint np(QVector3D(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp));
         np.v = VertexInfo::Intersect(geo->vecs[tid], geo->vecs[bid], r);
@@ -351,10 +352,10 @@ uchar* CPURenderer::Render()
         i->inout=false;
       }
 
-      //qDebug() << yy << " : scanline.size()=" << scanline.size();
+//      qDebug() << yy << " : scanline.size()=" << scanline.size();
       for(int pid=0; pid<scanline.size(); pid++)
       {
-        //qDebug() << "pid #" << pid << " p=" << scanline[pid] << " of geometry:" << scanline[pid].geo->name << edgeList[scanline[pid].e].tid << edgeList[scanline[pid].e].bid << scanline[pid].dx*size.height()/2;
+//        qDebug() << "pid #" << pid << " p=" << scanline[pid] << " of geometry:" << scanline[pid].geo->name << edgeList[scanline[pid].e].tid << edgeList[scanline[pid].e].bid << scanline[pid].dx*size.height()/2;
       }
 
       for(int pid=0; pid<scanline.size(); pid++)
@@ -372,9 +373,9 @@ uchar* CPURenderer::Render()
         {
           if(pid==scanline.size()-1 || p.geo!=scanline[pid+1].geo)
           {
-            //qDebug() << "Error: Odd number of scan points @ yy=" << yy << " p=" << p << " of geometry:";
+            qDebug() << "Error: Odd number of scan points @ yy=" << yy << " p=" << p << " of geometry:";
             error=true;
-            //qDebug() << *p.geo;
+            qDebug() << *p.geo;
           }
 
           int nextxx;
@@ -405,7 +406,7 @@ uchar* CPURenderer::Render()
         }
         else
         {
-          if(pid<scanline.size()-1 && (pid==scanline.size()-2 || (scanline[pid+1].geo==scanline[pid].geo && scanline[pid+2].geo!=scanline[pid+1].geo)))
+//          if(pid<scanline.size()-1 && (pid==scanline.size()-2 || (scanline[pid+1].geo==scanline[pid].geo && scanline[pid+2].geo!=scanline[pid+1].geo)))
           {
             scanline[pid].geo->inout=!scanline[pid].geo->inout;
           }
@@ -420,7 +421,7 @@ uchar* CPURenderer::Render()
           ScanlinePoint& p=scanline[pid];
           GI geo=p.geo;
           EdgeListItem& e=edgeList[p.e];
-          if(geo->vecs[e.bid].pp.y()>nexty)
+          if(ToScreenY(geo->vecs[e.bid].pp.y())<=yy+1)
           {
 //            if(error)
             {
@@ -465,9 +466,10 @@ uchar* CPURenderer::Render()
           {
             //qDebug() << "geo->vecs[tid].pp.y()-nexty=" << geo->vecs[tid].pp.y()-nexty << "geo->vecs[bid].pp.y()-nexty=" << geo->vecs[bid].pp.y()-nexty;
           }
-          if(geo->vecs[tid].pp.y()>=nexty && geo->vecs[bid].pp.y()<=nexty)
+          if(ToScreenY(geo->vecs[tid].pp.y())<=yy+1 && ToScreenY(geo->vecs[bid].pp.y())>=yy+1)
           {
-            double r=(nexty-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+//            double r=(nexty-geo->vecs[bid].pp.y())/(geo->vecs[tid].pp.y()-geo->vecs[bid].pp.y());
+            double r=(yy+1-ToScreenY(geo->vecs[bid].pp.y()))*1.0/(ToScreenY(geo->vecs[tid].pp.y())-ToScreenY(geo->vecs[bid].pp.y()));
 
             ScanlinePoint np(QVector3D(r*geo->vecs[tid].pp+(1-r)*geo->vecs[bid].pp));
             np.geo=geo;
@@ -564,22 +566,22 @@ void CPURenderer::AddGeometry(const Geometry &geo)
 
 int CPURenderer::ToScreenX(double x)
 {
-  return (int)((x+1.0)/2*size.width());
+  return (int)((x+1.0)/2*(size.width()-1));
 }
 
 int CPURenderer::ToScreenY(double y)
 {
-  return (int)((-y+1.0)/2*size.height());
+  return (int)((-y+1.0)/2*(size.height()-1));
 }
 
 double CPURenderer::ToProjX(int x)
 {
-  return x*1.0/size.width()*2-1.0;
+  return x*1.0/(size.width()-1)*2-1.0;
 }
 
 double CPURenderer::ToProjY(int y)
 {
-  return -(y*1.0/size.height()*2-1.0);
+  return -(y*1.0/(size.height()-1)*2-1.0);
 }
 
 void CPURenderer::Resize(QSize w)

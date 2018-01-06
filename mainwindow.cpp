@@ -157,8 +157,8 @@ void MainWindow::on_graphicsView_ResizeEvent(QResizeEvent *)
 void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
 {
   QPointF pp = ui->graphicsView->mapToScene(event->pos());
-//  qDebug() << "clicked @" << event->pos() << "on scene @" << pp;
-//  qDebug() << render.DepthPixelAt(pp.x(), pp.y()).chain;
+  qDebug() << "clicked @" << event->pos() << "on scene @" << pp;
+  qDebug() << render.DepthPixelAt(pp.x(), pp.y()).chain;
   pulling = true;
   lastp = pp;
 }
@@ -230,7 +230,7 @@ void MainWindow::on_graphicsView_MouseMoveEvent(QMouseEvent *event)
 {
   QPointF pp = ui->graphicsView->mapToScene(event->pos());
   QPointF df = pp-lastp;
-  qDebug() << pp;
+//  qDebug() << pp;
   render.CamRotate(df.x()*QVector3D(0, 1, 0)+df.y()*QVector3D(1, 0, 0), QVector2D(df).length()*0.2);
   lastp=pp;
   NewFrame();

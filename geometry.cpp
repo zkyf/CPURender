@@ -182,7 +182,8 @@ bool Geometry::IsInside(QVector3D p)
 QVector4D Geometry::Plane()
 {
   QVector4D n(Normal(), 0.0);
-
+  n.setW(-QVector3D::dotProduct(Normal(), vecs[0].p));
+  return n;
 }
 
 bool operator> (const Geometry& a, const Geometry& b) { return a.top> b.top; }
