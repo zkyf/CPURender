@@ -82,7 +82,7 @@ VertexInfo VertexInfo::Intersect(VertexInfo a, VertexInfo b, double r, bool pers
     result.pp = r*a.pp+(1-r)*b.pp;
 
     result.ptc=r*a.ptc+(1-r)*b.ptc;
-//    result.tc=result.ptc/pp.w();
+    result.tc=result.ptc/result.pp.w();
 //    result.tc = (a.tc*a.pp.w()*r+(1-r)*b.tc*b.pp.w())/result.pp.w();
 //    result.wp = (a.wp*a.pp.w()*r+(1-r)*b.wp*b.pp.w())/result.pp.w();
     return result;
@@ -95,8 +95,7 @@ VertexInfo VertexInfo::Intersect(VertexInfo a, VertexInfo b, double r, bool pers
     result.tp = r*a.tp+(1-r)*b.tp;
     result.pp = r*a.pp+(1-r)*b.pp;
 
-    result.ptc=r*a.ptc+(1-r)*b.ptc;
-//    result.tc=result.ptc/pp.w();
+    result.tc=r*a.tc+(1-r)*b.tc;
     return result;
   }
 }

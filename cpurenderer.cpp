@@ -828,7 +828,7 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     ColorPixel d = geo->diffuse;
     if(geo->text>=0)
     {
-      d=Sample(geo->text, frag.v.ptc.x()/frag.v.pp.w(), frag.v.ptc.y()/frag.v.pp.w(), true);
+      d=Sample(geo->text, frag.v.tc.x(), frag.v.tc.y(), true);
       a=d;
     }
     a=a*ar;
@@ -838,7 +838,7 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
     ColorPixel s = geo->specular*ss;
     if(geo->stext>=0)
     {
-      ColorPixel sm = Sample(geo->stext, frag.v.ptc.x()/frag.v.pp.w(), frag.v.ptc.y()/frag.v.pp.w(), true);
+      ColorPixel sm = Sample(geo->stext, frag.v.tc.x(), frag.v.tc.y(), true);
       s=s*sm;
     }
     frag.color.r = (a.r+d.r+s.r)*lights[i].color.x();

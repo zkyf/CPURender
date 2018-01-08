@@ -1,46 +1,51 @@
-//#ifndef RAY_H
-//#define RAY_H
+#ifndef RAY_H
+#define RAY_H
 
-//#include <QVector3D>
-//#include <QVector4D>
-//#include "geometry.h"
+#include <QVector3D>
+#include <QVector4D>
+#include "geometry.h"
 
-//typedef QVector4D Point;
+typedef QVector4D Point;
 
-//struct Plane : public QVector4D
-//{
-//  Plane();
-//  Plane(const QVector4D& v);
-//  bool On(const Point& p);
-//  bool On(const Line& l);
-//};
+struct Line;
 
-//struct Line
-//{
-//  QVector4D o;
-//  QVector4D n;
+struct Plane : public QVector4D
+{
+  Plane();
+  Plane(const QVector4D& v);
+  bool On(const Point& p);
+  bool On(const Line& l);
+};
 
-//  Line(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
+struct Line
+{
+  QVector4D o;
+  QVector4D n;
 
-//  void SetFromTo(Point a, Point b);
+  Line(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
 
-//  bool On(const Point& p);
+  void SetFromTo(Point a, Point b);
 
-//  bool Verticle(const Line& l);
-//  bool Parallel(const Line& l);
-//  bool Same(const Line& l);
-//  bool SamePlane(const Line& l);
+  bool On(const Point& p);
 
-//  Point Intersect(const Plane& pi);
-//  Point Intersect(const Line& l);
-//};
+  bool Verticle(const Line& l);
+  bool Parallel(const Line& l);
+  bool Same(const Line& l);
+  bool SamePlane(const Line& l);
 
-//struct Ray : public Line
-//{
-//public:
-//  Ray(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
+  virtual Point Intersect(const Plane& pi);
+  virtual Point Intersect(const Line& l);
+};
 
-//  VertexInfo IntersectGeo(GI geo);
-//};
+struct Ray : public Line
+{
+public:
+  Ray(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
 
-//#endif // RAY_H
+  Point Intersect(const Plane &pi) override;
+  VertexInfo IntersectGeo(GI geo);
+  Ray Reflect(Point p, QVector4D n);
+  Ray Refract(Point P, QVector4D n, double ratio);
+};
+
+#endif // RAY_H
