@@ -72,15 +72,33 @@ VertexInfo::VertexInfo(QVector3D _p, QVector3D _n, QVector2D _tc)
 VertexInfo VertexInfo::Intersect(VertexInfo a, VertexInfo b, double r, bool pers)
 {
   VertexInfo result;
-  result.p = r*a.p+(1-r)*b.p;
-  result.n = r*a.n+(1-r)*b.n;
-  result.wp = r*a.wp+(1-r)*b.wp;
-  result.tp = r*a.tp+(1-r)*b.tp;
-  result.pp = r*a.pp+(1-r)*b.pp;
+  if(pers)
+  {
+    // interpolation under perspective frame, so interpolate using 1/z (default)
+    result.p = r*a.p+(1-r)*b.p;
+    result.n = r*a.n+(1-r)*b.n;
+//    result.wp = r*a.wp+(1-r)*b.wp;
+    result.tp = r*a.tp+(1-r)*b.tp;
+    result.pp = r*a.pp+(1-r)*b.pp;
 
-  result.tc=r*a.tc+(1-r)*b.tc;
-  result.ptc=r*a.ptc+(1-r)*b.ptc;
-  return result;
+    result.ptc=r*a.ptc+(1-r)*b.ptc;
+//    result.tc=result.ptc/pp.w();
+//    result.tc = (a.tc*a.pp.w()*r+(1-r)*b.tc*b.pp.w())/result.pp.w();
+//    result.wp = (a.wp*a.pp.w()*r+(1-r)*b.wp*b.pp.w())/result.pp.w();
+    return result;
+  }
+  else
+  {
+    result.p = r*a.p+(1-r)*b.p;
+    result.n = r*a.n+(1-r)*b.n;
+    result.wp = r*a.wp+(1-r)*b.wp;
+    result.tp = r*a.tp+(1-r)*b.tp;
+    result.pp = r*a.pp+(1-r)*b.pp;
+
+    result.ptc=r*a.ptc+(1-r)*b.ptc;
+//    result.tc=result.ptc/pp.w();
+    return result;
+  }
 }
 
 /// Class Geometry

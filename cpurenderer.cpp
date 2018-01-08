@@ -791,7 +791,7 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
   v.tp.setX(tp.x()); v.tp.setY(tp.y()); v.tp.setZ(tp.z());
 
   QVector4D wp(v.p, 1.0);
-  wp = transform.toMatrix() * wp /pp.w();
+  wp = transform.toMatrix() * wp;
 
   VertexInfo nv=v;
   nv.n = transform.rotation().toRotationMatrix().transposed()*nv.n;
@@ -802,7 +802,7 @@ VertexInfo CPURenderer::VertexShader(VertexInfo v)
   nv.pp.setW(1.0/pp.w());
 
   nv.ptc = nv.tc/pp.w();
-
+  wp /=pp.w();
   nv.wp=QVector3D(wp);
   return nv;
 }
