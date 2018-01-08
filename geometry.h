@@ -33,6 +33,8 @@ public:
 };
 QDebug& operator<<(QDebug& s, const ColorPixel& p);
 
+typedef QVector<QVector3D> VecList;
+
 class VertexInfo
 {
 public:
