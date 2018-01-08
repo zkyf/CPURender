@@ -44,8 +44,8 @@ public:
 
   Point Intersect(const Plane &pi) override;
   VertexInfo IntersectGeo(GI geo);
-  Ray Reflect(Point p, QVector4D n);
-  Ray Refract(Point P, QVector4D n, double ratio);
+  Ray Reflect(Point p, QVector4D nn);
+  Ray Refract(Point P, QVector4D nn, double ratio);
 };
 
 #endif // RAY_H
