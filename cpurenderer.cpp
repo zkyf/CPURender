@@ -852,3 +852,9 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 //  frag.color=(frag.v.tp+QVector3D(1.0, 1.0, 1.0))/2;
 //  frag.color=QVector3D(frag.v.tc, 1.0);
 }
+
+
+uchar* CPURenderer::MonteCarloRender()
+{
+  return nullptr;
+}
