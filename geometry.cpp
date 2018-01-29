@@ -67,8 +67,8 @@ QDebug& operator<<(QDebug& s, const ColorPixel& p)
 }
 
 /// Class VertexInfo
-VertexInfo::VertexInfo(QVector3D _p, QVector3D _n, QVector2D _tc)
- : p(_p), n(_n), tc(_tc) {}
+VertexInfo::VertexInfo(bool v, QVector3D _p, QVector3D _n, QVector2D _tc)
+ : p(_p), n(_n), tc(_tc), valid(v) {}
 VertexInfo VertexInfo::Intersect(VertexInfo a, VertexInfo b, double r, bool pers)
 {
   VertexInfo result;

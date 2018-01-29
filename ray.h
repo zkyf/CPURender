@@ -40,6 +40,8 @@ struct Line
 struct Ray : public Line
 {
 public:
+  ColorPixel color;
+
   Ray(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
 
   Point Intersect(const Plane &pi) override;

@@ -8,6 +8,9 @@
 #include <QVector3D>
 #include <QVector4D>
 
+class Geometry;
+typedef QVector<Geometry>::iterator GI;
+
 class ColorPixel
 {
 public:
@@ -33,8 +36,6 @@ public:
 };
 QDebug& operator<<(QDebug& s, const ColorPixel& p);
 
-typedef QVector<QVector3D> VecList;
-
 class VertexInfo
 {
 public:
@@ -55,11 +56,17 @@ public:
   // projected posotion in perspective frame
   QVector4D pp;
 
+  GI geo;
+
+  bool valid;
+
 public:
-  VertexInfo(QVector3D _p = QVector3D(0, 0, 0), QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0));
+  VertexInfo(bool v= true, QVector3D _p = QVector3D(0, 0, 0), QVector3D _n=QVector3D(0.0, 0.0, 0.0), QVector2D _tc=QVector2D(0.0, 0.0));
 
   static VertexInfo Intersect(VertexInfo a, VertexInfo b, double r, bool pers=true);
 };
+
+typedef QVector<VertexInfo>::iterator VI;
 
 class Geometry
 {
@@ -105,7 +112,5 @@ bool operator>=(const Geometry& a, const Geometry& b);
 bool operator<=(const Geometry& a, const Geometry& b);
 bool operator==(const Geometry& a, const Geometry& b);
 QDebug& operator<<(QDebug& s, const Geometry& g);
-
-typedef QVector<Geometry>::iterator GI;
 
 #endif // GEOMETRY_H

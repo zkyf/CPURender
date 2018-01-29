@@ -32,7 +32,8 @@ SOURCES += main.cpp\
     qgraphicsviewwithmouseevent.cpp \
     mesh.cpp \
     ray.cpp \
-    geometry.cpp
+    geometry.cpp \
+    kdtree.cpp
 
 HEADERS  += mainwindow.h \
     cpurenderer.h \
@@ -43,7 +44,8 @@ HEADERS  += mainwindow.h \
     qgraphicsviewwithmouseevent.h \
     mesh.h \
     ray.h \
-    geometry.h
+    geometry.h \
+    kdtree.h
 
 FORMS    += mainwindow.ui
 

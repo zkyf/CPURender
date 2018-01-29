@@ -96,7 +96,7 @@ Point Ray::Intersect(const Plane &pi)
 VertexInfo Ray::IntersectGeo(GI geo)
 {
   if(geo->vecs.size()<3 || !geo->IsPlane())
-    return VertexInfo();
+    return VertexInfo(false);
 
   // ray intersection using tp coordinate
   QVector4D p = Intersect(geo->Plane());
@@ -114,7 +114,7 @@ VertexInfo Ray::IntersectGeo(GI geo)
   QVector4D f = rb*geo->vecs[2].tp+ra*geo->vecs[1].tp;
   double rc = 1-cp.length()/(f-geo->vecs[0].tp).length();
   ra *= (1-rc); rb *= (1-rc);
-  if(ra<0 || rb<0 || rc<0) return VertexInfo();
+  if(ra<0 || rb<0 || rc<0) return VertexInfo(false);
   else
   {
     VertexInfo vf = VertexInfo::Intersect(geo->vecs[1], geo->vecs[2], ra, false);
