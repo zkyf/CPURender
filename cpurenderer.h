@@ -195,6 +195,7 @@ public slots:
   ColorPixel Sample(int tid, double u, double v, bool bi=false);
 
   uchar* Render();
+  uchar* MonteCarloRender();
 
   int ToScreenY(double y);
   int ToScreenX(double x);
