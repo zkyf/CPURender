@@ -7,6 +7,7 @@
 #include <QVector2D>
 #include <QVector3D>
 #include <QVector4D>
+#include <time.h>
 
 class Geometry;
 typedef QVector<Geometry>::iterator GI;
@@ -24,12 +25,15 @@ public:
   ColorPixel(QVector4D c);
 
   void Clamp();
+  void LinearBlend(const ColorPixel& c);
+  float Strength() const;
 
   ColorPixel operator=(const QVector3D& c);
   ColorPixel operator=(const QVector4D& c);
   ColorPixel operator+(ColorPixel& c);
   ColorPixel operator+=(ColorPixel& c);
   ColorPixel operator*(const double& c);
+  ColorPixel operator/(const double& c);
   ColorPixel operator*(const ColorPixel& c);
 
   friend QDebug& operator<<(QDebug& s, const ColorPixel& p);
@@ -75,10 +79,6 @@ public:
 
   QVector<VertexInfo> vecs;
 
-  ColorPixel ambient;
-  ColorPixel diffuse;
-  ColorPixel specular;
-
   double top;
   double bottom;
   double dz;
@@ -87,6 +87,22 @@ public:
   int text=-1;
   int stext=-1;
   bool inout;
+  int id;
+
+  // materials
+  ColorPixel ambient;
+  ColorPixel diffuse;
+  ColorPixel specular;
+  ColorPixel emission;
+
+  bool diff = true;
+  bool tran = false;
+  bool spec = false;
+
+  float refractr = 0.0;
+  float reflectr = 0.0;
+
+  double ni=1.0;
 
   QImage dt;
 
@@ -98,6 +114,7 @@ public:
   bool IsPlane();
   bool IsInside(QVector3D p);
   QVector4D Plane();
+  VertexInfo Sample(bool debuginfo=false);
 
   friend bool operator> (const Geometry& a, const Geometry& b);
   friend bool operator< (const Geometry& a, const Geometry& b);

@@ -257,7 +257,7 @@ void MyMesh::Render(CPURenderer *render)
     bool noNorm=false;
     for(int vid=0; vid<faces[fid].vindex.size(); vid++)
     {
-      VertexInfo v(vertices[faces[fid].vindex[vid]]);
+      VertexInfo v(true, vertices[faces[fid].vindex[vid]]);
       if(faces[fid].nindex.size()>vid && faces[fid].nindex[vid]>0)
       {
         v.n=normals[faces[fid].nindex[vid]];
@@ -276,9 +276,13 @@ void MyMesh::Render(CPURenderer *render)
     geo.ambient=faces[fid].mat.ka;
     geo.diffuse=faces[fid].mat.kd;
     geo.specular=faces[fid].mat.ks;
+    geo.emission=faces[fid].mat.em;
     geo.text=faces[fid].mat.mdid;
     geo.stext=faces[fid].mat.msid;
     geo.ns=faces[fid].mat.ns;
+    geo.name=faces[fid].name;
+    geo.refractr=faces[fid].mat.refractr;
+    geo.reflectr=faces[fid].mat.reflectr;
     render->AddGeometry(geo);
   }
 
@@ -346,6 +350,46 @@ void MyMesh::Clear()
   normals.clear();
   texcoords.clear();
   name = "";
+}
+
+void MyMesh::Triangulate()
+{
+  for(int i=faces.size()-1; i>=0; i--)
+  {
+    if(faces[i].vindex.size()>3)
+    {
+      for(int vid=1; vid<faces[i].vindex.size()-1; vid++)
+      {
+        MyFace nf;
+        nf.mat = faces[i].mat;
+        nf.status = faces[i].status;
+        nf.paint = faces[i].paint;
+        nf.name = faces[i].name;
+
+        nf.vindex.push_back(faces[i].vindex[0]);
+        nf.vindex.push_back(faces[i].vindex[vid]);
+        nf.vindex.push_back(faces[i].vindex[vid+1]);
+
+        if(faces[i].nindex.size()>0)
+        {
+          nf.nindex.push_back(faces[i].nindex[0]);
+          nf.nindex.push_back(faces[i].nindex[vid]);
+          nf.nindex.push_back(faces[i].nindex[vid+1]);
+        }
+
+        if(faces[i].tindex.size()>0)
+        {
+          nf.tindex.push_back(faces[i].tindex[0]);
+          nf.tindex.push_back(faces[i].tindex[vid]);
+          nf.tindex.push_back(faces[i].tindex[vid+1]);
+        }
+
+        faces.push_back(nf);
+      }
+
+      faces.remove(i);
+    }
+  }
 }
 
 MyModel::MyModel()
@@ -833,6 +877,7 @@ MyModel LoadOBJ(QString path)
         face.vindex.push_back(v);
         face.nindex.push_back(n);
         face.tindex.push_back(t);
+        face.name = mesh.name;
       }
       if(nowMat>=0) face.mat=mtllib[nowMat];
       else
@@ -866,14 +911,25 @@ MyModel LoadOBJ(QString path)
     {
       QString mat;
       in >> mat;
+      bool found = false;
       for(int i=0; i<mtllib.size(); i++)
       {
         if(mtllib[i].name==mat)
         {
           nowMat=i;
+          found=true;
           break;
         }
       }
+      if(!found)
+      {
+        qDebug() << "Material " << mat << " not found.";
+      }
+    }
+    else if(c=="G")
+    {
+      in >> mesh.name;
+      qDebug() << "Group got: " << mesh.name;
     }
   }
   if(mesh.faces.size()!=0)
@@ -959,6 +1015,31 @@ QVector<MyMaterial> LoadMTL(QString path)
       dirty=true;
       in >> mat.map_ks;
     }
+    else if(c=="TF")
+    {
+      dirty=true;
+      float r, g, b;
+      in >> r >> g >> b;
+      mat.tf = QVector3D(r, g, b);
+    }
+    // self-defined materials
+    else if(c=="LJX_EMIT")
+    {
+      dirty=true;
+      float r, g, b;
+      in >> r >> g >> b;
+      mat.em = QVector3D(r, g, b);
+    }
+    else if(c=="LJX_REFRACT_RATIO")
+    {
+      dirty=true;
+      in >> mat.refractr;
+    }
+    else if(c=="LJX_REFLECT_RATIO")
+    {
+      dirty=true;
+      in >> mat.reflectr;
+    }
   }
 
   if(dirty)
@@ -966,4 +1047,12 @@ QVector<MyMaterial> LoadMTL(QString path)
     result.push_back(mat);
   }
   return result;
+}
+
+void MyModel::Triangulate()
+{
+  for(int i=0; i<meshes.size(); i++)
+  {
+    meshes[i].Triangulate();
+  }
 }

@@ -1,6 +1,7 @@
 #ifndef RAY_H
 #define RAY_H
 
+#include <QDebug>
 #include <QVector3D>
 #include <QVector4D>
 #include "geometry.h"
@@ -41,13 +42,16 @@ struct Ray : public Line
 {
 public:
   ColorPixel color;
+  float ni=1.0;
 
   Ray(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
 
   Point Intersect(const Plane &pi) override;
-  VertexInfo IntersectGeo(GI geo);
+  VertexInfo IntersectGeo(GI geo, bool debuginfo=false);
   Ray Reflect(Point p, QVector4D nn);
   Ray Refract(Point P, QVector4D nn, double ratio);
 };
+
+QDebug& operator<<(QDebug& s, const Ray& ray);
 
 #endif // RAY_H

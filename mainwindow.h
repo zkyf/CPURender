@@ -5,6 +5,7 @@
 #include <QGraphicsPixmapItem>
 #include <QKeyEvent>
 #include <QFileDialog>
+#include <time.h>
 #include "qgraphicsviewwithmouseevent.h"
 #include "cpurenderer.h"
 #include "mesh.h"
@@ -20,6 +21,12 @@ class MainWindow : public QMainWindow
 public:
   explicit MainWindow(QWidget *parent = 0);
   ~MainWindow();
+
+  enum RenderMethod
+  {
+    Original,
+    MCRT
+  };
 
 private slots:
   void on_graphicsView_KeyReleaseEvent(QKeyEvent *);
@@ -48,6 +55,12 @@ private slots:
 
   void on_graphicsView_MouseMoveEvent(QMouseEvent *);
 
+  void on_rbOri_clicked();
+
+  void on_rbMCRT_clicked();
+
+  void on_MCRTRender_clicked();
+
 private:
   Ui::MainWindow *ui;
 
@@ -57,6 +70,8 @@ private:
 
   bool pulling;
   QPointF lastp;
+
+  RenderMethod method;
 };
 
 #endif // MAINWINDOW_H

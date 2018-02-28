@@ -15,6 +15,19 @@ void ColorPixel::Clamp()
   if(a<0) a=0; if(a>1) a=1;
 }
 
+void ColorPixel::LinearBlend(const ColorPixel& c)
+{
+  r += c.r;
+  g += c.g;
+  b += c.b;
+  a += c.a;
+}
+
+float ColorPixel::Strength() const
+{
+  return sqrt(r*r+g*g+b*b);
+}
+
 ColorPixel ColorPixel::operator=(const QVector3D& c)
 {
   r=c.x();
@@ -35,6 +48,10 @@ ColorPixel ColorPixel::operator=(const QVector4D& c)
 
 ColorPixel ColorPixel::operator +(ColorPixel& c)
 {
+  if(fabs(a)<1e-3 && fabs(c.a)<1e-3)
+  {
+    return ColorPixel();
+  }
   double r1 = a/(a+c.a*(1-a));
   double r2 = 1-r1;
   return ColorPixel(
@@ -53,6 +70,11 @@ ColorPixel ColorPixel::operator +=(ColorPixel& c)
 ColorPixel ColorPixel::operator *(const double& c)
 {
   return ColorPixel(r*c, g*c, b*c, a);
+}
+
+ColorPixel ColorPixel::operator /(const double& c)
+{
+  return ColorPixel(r/c, g/c, b/c, a);
 }
 
 ColorPixel ColorPixel::operator *(const ColorPixel& c)
@@ -105,7 +127,7 @@ void Geometry::AddPoints(QVector<QVector3D> vs)
 {
   for(int i=0; i<vs.size(); i++)
   {
-    vecs.push_back(VertexInfo(vs[i]));
+    vecs.push_back(VertexInfo(true, vs[i]));
   }
 }
 
@@ -201,6 +223,21 @@ QVector4D Geometry::Plane()
   QVector4D n(Normal(), 0.0);
   n.setW(-QVector3D::dotProduct(Normal(), vecs[0].p));
   return n;
+}
+
+VertexInfo Geometry::Sample(bool debuginfo)
+{
+  VertexInfo result=vecs[0];
+  for(int i=1; i<vecs.size(); i++)
+  {
+    float r=rand()%10000/10000.0;
+    result = VertexInfo::Intersect(result, vecs[i], r);
+    if(debuginfo)
+    {
+      qDebug() << "Sample" << name << " #" << i << r << result.p;
+    }
+  }
+  return result;
 }
 
 bool operator> (const Geometry& a, const Geometry& b) { return a.top> b.top; }

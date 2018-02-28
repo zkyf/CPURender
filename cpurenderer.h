@@ -1,6 +1,7 @@
 #ifndef CPURENDERER_H
 #define CPURENDERER_H
 
+#include <math.h>
 #include <QDebug>
 #include <QLinkedList>
 #include <QMatrix4x4>
@@ -11,11 +12,14 @@
 #include <QVector3D>
 #include <QVector2D>
 #include <QtAlgorithms>
+#include <time.h>
 #include "transform3d.h"
 #include "camera3d.h"
 #include "light.h"
 #include "simplemesh.h"
 #include "geometry.h"
+#include "ray.h"
+#include "kdtree.h"
 
 #include <opencv2/opencv.hpp>
 using namespace cv;
@@ -188,7 +192,7 @@ public slots:
   void Resize(QSize w);
   QSize Size();
   void AddLight(Light light);
-  void ClearGeometry() { input.clear(); textures.clear(); }
+  void ClearGeometry() { input.clear(); textures.clear(); lightGeoList.clear(); }
 
   // textures
   int AddTexture(QImage text);
@@ -196,6 +200,7 @@ public slots:
 
   uchar* Render();
   uchar* MonteCarloRender();
+  ColorPixel MonteCarloSample(const VertexInfo o, const Ray& i, int length=0, bool debuginfo=false);
 
   int ToScreenY(double y);
   int ToScreenX(double x);
@@ -208,8 +213,16 @@ signals:
 
 public:
   QVector<Light> lights;
+  KDTree kdtree;
+  QVector<int> lightGeoList;
 
-private:
+  Ray GetRay(int xx, int yy);
+  int spsp = 32; // samples per sub-pixel
+  int nos = 9973;
+  int nol = 4; // samples on lights
+  int nop = 1; // max length of light paths
+
+//private:
   QSize size;
 
   double nearPlane;

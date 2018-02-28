@@ -2,6 +2,7 @@
 #define KDTREE_H
 
 #include <QPair>
+#include <QDebug>
 #include "geometry.h"
 #include "ray.h"
 
@@ -15,8 +16,9 @@ public:
     GI geo;
     float d;
     bool valid;
+    VertexInfo hp;
 
-    IR();
+    IR(bool v=true);
 
     bool operator<(const IR& b);
   };
@@ -41,7 +43,9 @@ public:
     Node(Node* p = nullptr);
     ~Node();
     void Split();
-    IR Hit(Ray ray);
+    IR Hit(Ray ray, bool debuginfo = false);
+    IR HitChild(Ray ray, bool debuginfo = false);
+    void Print();
   };
 
 private:
@@ -49,10 +53,13 @@ private:
 
 public:
   KDTree();
-  KDTree(const GeoList& geos);
+  KDTree(GeoList &geos);
   ~KDTree();
 
-  IR Intersect(Ray ray);
+  IR Intersect(Ray ray, bool debuginfo = false);
+  void SetTree(GeoList& geos);
+
+  void Print();
 };
 
 #endif // KDTREE_H

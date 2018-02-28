@@ -12,21 +12,30 @@ Ka 0.78 0.78 0.78
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
+Ljx_emit 1.00 1.00 1.00
+
 newmtl initialShadingGroup
 illum 4
-Kd 0.50 0.50 0.50
+Kd 0.75 0.75 0.75
 Ka 0.00 0.00 0.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 newmtl lambert2SG
 illum 4
-Kd 1.00 0.00 0.00
+Kd 0.75 0.25 0.25
 Ka 0.00 0.00 0.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 newmtl lambert3SG
 illum 4
-Kd 0.00 0.01 1.00
+Kd 0.25 0.25 0.75
 Ka 0.00 0.00 0.00
 Tf 1.00 1.00 1.00
 Ni 1.00
+newmtl mia_material_x1SG
+Kd 0.52 0.52 0.52
+Ka 0.27 0.27 0.27
+Tf 0.00 0.00 0.00
+Ni 1.80
+Ks 1.00 1.00 1.00
+LJX_REFLECT_RATIO 1.0

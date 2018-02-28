@@ -36,14 +36,23 @@ struct MyMaterial
   QVector3D kd = QVector3D(1.0, 1.0, 1.0);
   QVector3D ka = QVector3D(1.0, 1.0, 1.0);
   QVector3D ks = QVector3D(1.0, 1.0, 1.0);
+  QVector3D tf = QVector3D(1.0, 1.0, 1.0);
+  QVector3D em = QVector3D(0.0, 0.0, 0.0);
+  float refractr = 0.0;
+  float reflectr = 0.0;
   float ns;
   float d;
   float ni;
+  float t;
   QString map_ka; int maid=-1;
   QString map_kd; int mdid=-1;
   QString map_ks; int msid=-1;
   QString map_d;
   QString map_bump;
+
+  bool diff = false;
+  bool tran = false;
+  bool spec = false;
 };
 
 struct MyFace
@@ -56,6 +65,8 @@ struct MyFace
 
 	bool status;
 	bool paint;
+
+  QString name;
 
 	MyFace();
 	void AddVertex(int vin, int nin=-1, int tin=-1);
@@ -78,6 +89,7 @@ struct MyMesh
     float MaxSize();
     float MinSize();
     void AverageNormal();
+    void Triangulate();
 
     void Render(CPURenderer* render);
     QVector3D Normal(int fid);
@@ -114,6 +126,7 @@ struct MyModel
 		void CollectGarbage();
     void AddModel(MyModel& a);
     void AddMesh(MyMesh m);
+    void Triangulate();
 
     void Render(CPURenderer* render);
     void Smooth();
