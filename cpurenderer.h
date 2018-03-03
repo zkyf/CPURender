@@ -64,10 +64,11 @@ public:
       int tr=i*3;
       int tg=i*3+1;
       int tb=i*3+2;
-      buffer[i].Clamp();
-      result[tr]=255*buffer[i].r;
-      result[tg]=255*buffer[i].g;
-      result[tb]=255*buffer[i].b;
+      ColorPixel temp=buffer[i];
+      temp.Clamp();
+      result[tr]=255*temp.r;
+      result[tg]=255*temp.g;
+      result[tb]=255*temp.b;
     }
     return result;
   }

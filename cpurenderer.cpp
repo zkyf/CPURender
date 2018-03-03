@@ -941,15 +941,68 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
     {
       qDebug() << "Ray too long" << emitLight;
     }
-    return emitLight;
-  }
 
-  int hitcount=0;
+    // can use precomputed light visible info instead
+    int hitcount=0;
+    ColorPixel lightHit;
+    for(int ii=0; ii<lightGeoList.size(); ii++)
+    {
+      Geometry& geo=input[lightGeoList[ii]];
+      for(int j=0; j<nol; j++)
+      {
+        VertexInfo v=geo.Sample();
+        if(debuginfo)
+        {
+          qDebug() << "test light hit #" << i << geo.name << " @ " << v.p << v.valid;
+        }
+        Ray out;
+        out.o = o.p; out.o.setW(1.0);
+        out.ni=i.ni;
+        QVector3D nn((v.p-o.p).normalized());
+        out.n=QVector4D(nn, 0.0);
+        KDTree::IR ir = kdtree.Intersect(out);
+        if(debuginfo)
+        {
+          qDebug() << "test light hit ir" << ir.valid << ir.geo;
+          if(ir.valid)
+          {
+            qDebug() << ir.geo->name << ir.d << ir.geo->emission;
+          }
+        }
+        if(ir.valid && ir.geo->id==geo.id)
+        {
+          if(debuginfo)
+          {
+            qDebug() << "Hit light" << geo.name;
+          }
+          float r=ir.d*ir.d;
+          if(r<fabs(QVector3D::dotProduct(o.n, nn))) r=fabs(QVector3D::dotProduct(o.n, nn));
+          lightHit.LinearBlend(geo.emission*fabs(QVector3D::dotProduct(o.n, nn))/r);
+          hitcount++;
+        }
+        else
+        {
+          if(debuginfo)
+          {
+            qDebug() << "Didnt hit light" << geo.name;
+          }
+        }
+      }
+    }
+
+    if(hitcount>0)
+    {
+      lightHit = lightHit/hitcount;
+    }
+
+    return lightHit*o.geo->diffuse;
+  }
 
   // diffuse
   ColorPixel diffLight;
   if(1-o.geo->refractr-o.geo->reflectr>1e-2)
   {
+    int hitcount=0;
     QVector<float> phis, thetas;
     for(int ii=0; ii<1; ii++)
     {
@@ -997,6 +1050,7 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
             continue;
           }
           ColorPixel tr = MonteCarloSample(ir.hp, out, length+1, debuginfo);
+//          ColorPixel tr = (nn+QVector3D(1.0, 1.0, 1.0))/2;
           float r=ir.d*ir.d;
           if(r<1) r=1;
           diffLight.LinearBlend(tr/r);
@@ -1022,69 +1076,20 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
     {
       qDebug() << "light #" << lightGeoList.size();
     }
-    // can use precomputed light visible info instead
-    for(int ii=0; ii<lightGeoList.size(); ii++)
-    {
-      Geometry& geo=input[lightGeoList[ii]];
-      for(int j=0; j<nol; j++)
-      {
-        VertexInfo v=geo.Sample();
-        if(debuginfo)
-        {
-          qDebug() << "test light hit #" << i << geo.name << " @ " << v.p << v.valid;
-        }
-        Ray out;
-        out.o = o.p; out.o.setW(1.0);
-        out.ni=i.ni;
-        QVector3D nn((v.p-o.p).normalized());
-        out.n=QVector4D(nn, 0.0);
-        KDTree::IR ir = kdtree.Intersect(out);
-        if(debuginfo)
-        {
-          qDebug() << "test light hit ir" << ir.valid << ir.geo;
-          if(ir.valid)
-          {
-            qDebug() << ir.geo->name << ir.d << ir.geo->emission;
-          }
-        }
-        if(ir.valid && ir.geo->id==geo.id)
-        {
-          if(debuginfo)
-          {
-            qDebug() << "Hit light" << geo.name;
-          }
-          diffLight.LinearBlend(geo.emission*fabs(QVector3D::dotProduct(o.n, nn))/ir.d/ir.d);
-          hitcount++;
-        }
-        else
-        {
-          if(debuginfo)
-          {
-            qDebug() << "Didnt hit light" << geo.name;
-          }
-        }
-      }
-    }
-
-    if(debuginfo)
-    {
-      qDebug() << "final diffLight=" << diffLight;
-    }
 
     if(hitcount>0)
     {
       diffLight = diffLight/hitcount;
     }
-    diffLight.Clamp();
+//    diffLight.r += 0.2;
+//    diffLight.Clamp();
 
     if(emitLight.Strength()>0.1)
     {
       diffLight = emitLight;
     }
-    else
-    {
-      diffLight = diffLight+emitLight;
-    }
+
+    diffLight = diffLight * o.geo->diffuse;
 
     if(debuginfo)
     {
@@ -1105,7 +1110,7 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
     KDTree::IR ir=kdtree.Intersect(out);
     if(ir.valid)
     {
-      specular = MonteCarloSample(ir.hp, out, length+1, debuginfo);
+      specular = MonteCarloSample(ir.hp, out, length+1, debuginfo) * o.geo->specular;
     }
   }
 
@@ -1126,7 +1131,7 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
     result.LinearBlend(specular*o.geo->reflectr);
   }
   result.a = 1.0;
-  result = result * o.geo->diffuse;
+//  result = result * o.geo->diffuse;
 //  result.Clamp();
 
   return result;
