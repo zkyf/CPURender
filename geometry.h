@@ -115,6 +115,7 @@ public:
   bool IsInside(QVector3D p);
   QVector4D Plane();
   VertexInfo Sample(bool debuginfo=false);
+  GI gi;
 
   friend bool operator> (const Geometry& a, const Geometry& b);
   friend bool operator< (const Geometry& a, const Geometry& b);

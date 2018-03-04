@@ -47,6 +47,7 @@ public:
   Ray(QVector4D oo = QVector4D(0, 0, 0, 1), QVector4D nn = QVector4D(0, 0, -1, 0));
 
   Point Intersect(const Plane &pi) override;
+  VertexInfo IntersectGeometry(Geometry geo, bool debuginfo=false);
   VertexInfo IntersectGeo(GI geo, bool debuginfo=false);
   Ray Reflect(Point p, QVector4D nn);
   Ray Refract(Point P, QVector4D nn, double ratio);

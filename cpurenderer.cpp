@@ -1,8 +1,9 @@
 #include "cpurenderer.h"
 
-extern "C" void CudaIntersect(const CudaRay& ray);
-extern "C" void CudaInit(CudaGeometry* input, int _n);
+extern "C" void CudaIntersect(CudaRay ray);
+extern "C" void CudaInit(CudaGeometry* input, int _n, double* hits);
 extern "C" void CudaEnd();
+extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer);
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x)
 {
@@ -71,7 +72,8 @@ CPURenderer::CPURenderer(QSize s) :
   size(s),
   colorBuffer(s),
   depthBuffer(s),
-  stencilBuffer(nullptr)
+  stencilBuffer(nullptr),
+  hits(nullptr)
 {
   int bufferCount = size.width()*size.height();
   stencilBuffer = new uchar[bufferCount];
@@ -91,6 +93,7 @@ CPURenderer::CPURenderer(QSize s) :
 CPURenderer::~CPURenderer()
 {
   delete[] stencilBuffer;
+  delete[] hits;
 
   CudaEnd();
 }
@@ -857,27 +860,56 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 
 uchar* CPURenderer::MonteCarloRender()
 {
-  CudaGeometry* geos = new CudaGeometry[input.size()];
-  for(int i=0; i<input.size(); i++)
+  if(hits)
   {
-    CudaGeometry newg;
-    newg.index=i;
-    newg.diffuse = CudaVec(input[i].diffuse.r, input[i].diffuse.g, input[i].diffuse.b);
-    newg.emission = CudaVec(input[i].emission.r, input[i].emission.g, input[i].emission.b);
-    newg.specular = CudaVec(input[i].specular.r, input[i].specular.g, input[i].specular.b);
-    newg.reflectr = input[i].reflectr;
-    newg.refractr = input[i].refractr;
-
-    for(int j=0; j<input[i].vecs.size(); j++)
-    {
-      newg.vecs[j].p = CudaVec4(input[i].vecs[j].p.x(), input[i].vecs[j].p.y(), input[i].vecs[j].p.z(), 1.0);
-      newg.vecs[j].n = CudaVec4(input[i].vecs[j].n.x(), input[i].vecs[j].n.y(), input[i].vecs[j].n.z(), 1.0);
-      newg.vecs[j].geo = i;
-    }
-    geos[i] = newg;
+    delete[] hits;
+    hits = nullptr;
   }
 
-  CudaInit(geos, input.size());
+  if(input.size()>0)
+  {
+    CudaGeometry* geos = new CudaGeometry[input.size()];
+    for(int i=0; i<input.size(); i++)
+    {
+      CudaGeometry newg;
+      newg.index=i;
+      newg.diffuse = CudaVec(input[i].diffuse.r, input[i].diffuse.g, input[i].diffuse.b);
+      newg.emission = CudaVec(input[i].emission.r, input[i].emission.g, input[i].emission.b);
+      newg.specular = CudaVec(input[i].specular.r, input[i].specular.g, input[i].specular.b);
+      newg.reflectr = input[i].reflectr;
+      newg.refractr = input[i].refractr;
+
+      for(int j=0; j<input[i].vecs.size(); j++)
+      {
+        newg.vecs[j].p = CudaVec4(input[i].vecs[j].p.x(), input[i].vecs[j].p.y(), input[i].vecs[j].p.z(), 1.0);
+        newg.vecs[j].n = CudaVec4(input[i].vecs[j].n.x(), input[i].vecs[j].n.y(), input[i].vecs[j].n.z(), 1.0);
+        newg.vecs[j].geo = i;
+      }
+      geos[i] = newg;
+    }
+    hits = new double[input.size()];
+    CudaInit(geos, input.size(), hits);
+  }
+
+  CudaVec* buffer = new CudaVec[size.width()*size.height()];
+  CudaRender(size.width(), size.height(), CudaVec(camera.translation()), CudaVec(camera.up()), CudaVec(camera.forward()), CudaVec(camera.right()), buffer);
+  for(int yy=0; yy<size.height(); yy++)
+  {
+    for(int xx=0; xx<size.width(); xx++)
+    {
+      int index = yy*size.width()+xx;
+      colorBuffer.buffer[index].r = buffer[index].x;
+      colorBuffer.buffer[index].g = buffer[index].y;
+      colorBuffer.buffer[index].b = buffer[index].z;
+      colorBuffer.buffer[index].a = 1.0;
+    }
+  }
+  return colorBuffer.ToUcharArray();
+
+  for(GI i=input.begin(); i!=input.end(); i++)
+  {
+    i->gi = i;
+  }
   kdtree.SetTree(input);
 //  kdtree.Print();
   colorBuffer.Clear();
@@ -896,6 +928,9 @@ uchar* CPURenderer::MonteCarloRender()
 //      for(int sp=0; sp<=spsp; sp++)
       {
         Ray ray = GetRay(xx, yy);
+//        colorBuffer.buffer[yy*size.width()+xx] = (ray.n+QVector4D(1.0, 1.0, 1.0, 1.0))/2;
+//        colorBuffer.buffer[yy*size.width()+xx].a = 1.0;
+//        continue;
 //          for(GI geo=input.begin(); geo!=input.end(); geo++)
         {
 
@@ -929,6 +964,7 @@ uchar* CPURenderer::MonteCarloRender()
     }
   }
 
+  qDebug() << "render ended";
   return colorBuffer.ToUcharArray();
 }
 
@@ -949,6 +985,7 @@ Ray CPURenderer::GetRay(int xx, int yy)
 
 ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int length, bool debuginfo)
 {
+  const double drr = 10.0;
   if(debuginfo)
   {
     printf("test\n");
@@ -960,13 +997,13 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
     if(length<=nop)
     {
       CudaRay cray;
-      cray.n = CudaVec4(i.n.x(), i.n.y(), i.n.z(), 0.0);
-      cray.o = CudaVec4(i.o.x(), i.o.y(), i.o.z(), 1.0);
+      cray.FromRay(i);
       CudaIntersect(cray);
     }
   }
+  if(!o.valid) return ColorPixel();
 
-  return o.geo->diffuse;
+//  return o.geo->diffuse;
 
   ColorPixel result = (0.0, 0.0, 0.0, 0.0);
 
@@ -999,39 +1036,95 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
         out.ni=i.ni;
         QVector3D nn((v.p-o.p).normalized());
         out.n=QVector4D(nn, 0.0);
-        KDTree::IR ir = kdtree.Intersect(out);
+
+
+        CudaRay cray; cray.FromRay(out);
+        CudaIntersect(cray);
+        double mind = 1e20;
+        int ming = -1;
+        for(int iii=0; iii<input.size(); iii++)
+        {
+          if(hits[iii]>1e-3 && hits[iii]<mind)
+          {
+            mind=hits[iii];
+            ming=iii;
+          }
+        }
         if(debuginfo)
         {
-          qDebug() << "test light hit ir" << ir.valid << ir.geo;
-          if(ir.valid)
+          qDebug() << "mind=" << mind << "ming=" << ming << "lightGeoList[ii]=" << lightGeoList[ii];
+          qDebug() << "hits=";
+          for(int i=0; i<input.size(); i++)
           {
-            qDebug() << ir.geo->name << ir.d << ir.geo->emission;
+            if(hits[i]>0) qDebug() << "#" << i << hits[i];
           }
         }
-        if(ir.valid && ir.geo->id==geo.id)
+        if(ming>=0)
         {
-          if(debuginfo)
+          if(ming==lightGeoList[ii])
           {
-            qDebug() << "Hit light" << geo.name;
+            float r=mind*mind;
+            if(r<fabs(QVector3D::dotProduct(o.n, nn))) r=fabs(QVector3D::dotProduct(o.n, nn));
+            if(debuginfo)
+            {
+              qDebug() << "before blend lightHit=" << lightHit << "r=" << r;
+            }
+            lightHit.LinearBlend(geo.emission*fabs(QVector3D::dotProduct(o.n, nn))/r);
+            if(debuginfo)
+            {
+              qDebug() << "after lightHit=" << lightHit;
+            }
+            hitcount++;
           }
-          float r=ir.d*ir.d;
-          if(r<fabs(QVector3D::dotProduct(o.n, nn))) r=fabs(QVector3D::dotProduct(o.n, nn));
-          lightHit.LinearBlend(geo.emission*fabs(QVector3D::dotProduct(o.n, nn))/r);
-          hitcount++;
         }
-        else
-        {
-          if(debuginfo)
-          {
-            qDebug() << "Didnt hit light" << geo.name;
-          }
-        }
+
+//        KDTree::IR ir = kdtree.Intersect(out);
+//        if(debuginfo)
+//        {
+//          qDebug() << "test light hit ir" << ir.valid << ir.geo;
+//          if(ir.valid)
+//          {
+//            qDebug() << ir.geo->name << ir.d << ir.geo->emission;
+//          }
+//        }
+//        if(ir.valid && ir.geo->id==geo.id)
+//        {
+//          if(debuginfo)
+//          {
+//            qDebug() << "Hit light" << geo.name;
+//          }
+//          float r=ir.d*ir.d;
+//          if(r<fabs(QVector3D::dotProduct(o.n, nn))) r=fabs(QVector3D::dotProduct(o.n, nn));
+//          if(debuginfo)
+//          {
+//            qDebug() << "before blend lightHit=" << lightHit << "r=" << r;
+//          }
+//          lightHit.LinearBlend(geo.emission*fabs(QVector3D::dotProduct(o.n, nn))/r);
+//          if(debuginfo)
+//          {
+//            qDebug() << "after lightHit=" << lightHit;
+//          }
+//          hitcount++;
+//        }
+//        else
+//        {
+//          if(debuginfo)
+//          {
+//            qDebug() << "Didnt hit light" << geo.name;
+//          }
+//        }
+
+
       }
     }
 
     if(hitcount>0)
     {
       lightHit = lightHit/hitcount;
+    }
+    if(debuginfo)
+    {
+      qDebug() << "lightHit=" << lightHit;
     }
 
     return lightHit*o.geo->diffuse;
@@ -1046,7 +1139,7 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
     for(int ii=0; ii<1; ii++)
     {
       float phi=rand()%nos*2*M_PI/nos;
-      float theta=acos(rand()%nos*2.0/nos-1.0);
+      float theta=asin(rand()%nos*2.0/nos-1.0);
       phis.push_back(phi);
       thetas.push_back(theta);
     }
@@ -1070,44 +1163,89 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
   //      }
         out.n=QVector4D(nn, 0.0);
 
-        KDTree::IR ir=kdtree.Intersect(out);
-        if(!ir.valid)
+        CudaRay cray; cray.FromRay(out);
+        CudaIntersect(cray);
+        double mind = 1e20;
+        int ming = -1;
+        for(int iii=0; iii<input.size(); iii++)
         {
-          out.n=-out.n;
-          ir=kdtree.Intersect(out);
-        }
-        if(ir.valid)
-        {
-          if(debuginfo)
+          if(hits[iii]>1e-3 && hits[iii]<mind)
           {
-            qDebug() << "Hit new geo";
+            mind=hits[iii];
+            ming=iii;
           }
-          VertexInfo vo = ir.hp;
-          if(ir.geo->emission.Strength()>0.10 && o.geo->emission.Strength()<0.10)
+        }
+        if(debuginfo)
+        {
+//          qDebug() << "mind=" << mind << "ming=" << ming << "lightGeoList[ii]=" << lightGeoList[ii];
+//          qDebug() << "hits=";
+//          for(int i=0; i<input.size(); i++)
+//          {
+//            if(hits[i]>0) qDebug() << "#" << i << hits[i];
+//          }
+        }
+        if(ming>=0)
+        {
+          if(input[ming].emission.Strength()>0.1 && o.geo->emission.Strength()<0.10)
           {
-            hitlight=true;
+            // hit light
             continue;
           }
-          ColorPixel tr = MonteCarloSample(ir.hp, out, length+1, debuginfo);
-//          ColorPixel tr = (nn+QVector3D(1.0, 1.0, 1.0))/2;
-          float r=ir.d*ir.d;
+          VertexInfo hp = out.IntersectGeo(input[ming].gi);
+          hp.geo = input[ming].gi;
+
+          ColorPixel tr = MonteCarloSample(hp, out, length+1, debuginfo);
+          if(fabs((hp.p-QVector3D(out.o)).length() - mind)>1e-3)
+          {
+            qDebug() << "Different result!!! ir=" << (hp.p-QVector3D(out.o)).length() << " mind=" << mind;
+          }
+          float r=mind*mind;
           if(r<1) r=1;
           diffLight.LinearBlend(tr/r);
-  //        qDebug() << phi << theta;
-  //        diffLight.LinearBlend(ColorPixel(phi/M_PI/2, phi/M_PI/2, phi/M_PI/2, 1.0));
-          if(debuginfo)
-          {
-            qDebug() << "diffLight=" << diffLight << tr << "1/r=" << 1.0/r;
-          }
           hitcount++;
         }
-        else
-        {
-          if(debuginfo)
-          {
-            qDebug() << "Hit nothing" << diffLight;
-          }
-        }
+
+
+//        KDTree::IR ir=kdtree.Intersect(out);
+//        if(!ir.valid)
+//        {
+//          out.n=-out.n;
+//          ir=kdtree.Intersect(out);
+//        }
+//        if(ir.valid)
+//        {
+//          if(debuginfo)
+//          {
+//            qDebug() << "Hit new geo";
+//          }
+//          VertexInfo vo = ir.hp;
+//          if(ir.geo->emission.Strength()>0.10 && o.geo->emission.Strength()<0.10)
+//          {
+//            hitlight=true;
+//            continue;
+//          }
+//          ColorPixel tr = MonteCarloSample(ir.hp, out, length+1, debuginfo);
+////          ColorPixel tr = (nn+QVector3D(1.0, 1.0, 1.0))/2;
+//          float r=ir.d*ir.d;
+//          if(r<1) r=1;
+//          diffLight.LinearBlend(tr/r);
+//  //        qDebug() << phi << theta;
+//  //        diffLight.LinearBlend(ColorPixel(phi/M_PI/2, phi/M_PI/2, phi/M_PI/2, 1.0));
+//          if(debuginfo)
+//          {
+//            qDebug() << "diffLight=" << diffLight << tr << "1/r=" << 1.0/r;
+//          }
+//          hitcount++;
+//        }
+//        else
+//        {
+//          if(debuginfo)
+//          {
+//            qDebug() << "Hit nothing" << diffLight;
+//          }
+//        }
+
+
       }
     }
 
@@ -1140,17 +1278,17 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
   ColorPixel specular;
   if(o.geo->reflectr>1e-2)
   {
-    QVector4D nl=o.n*QVector4D::dotProduct(o.n, -1*i.n);
-    QVector4D nr=2*nl+i.n;
-    Ray out;
-    out.o=o.p; out.o.setW(1);
-    out.n=nr.normalized();
-    out.ni=i.ni;
-    KDTree::IR ir=kdtree.Intersect(out);
-    if(ir.valid)
-    {
-      specular = MonteCarloSample(ir.hp, out, length+1, debuginfo) * o.geo->specular;
-    }
+//    QVector4D nl=o.n*QVector4D::dotProduct(o.n, -1*i.n);
+//    QVector4D nr=2*nl+i.n;
+//    Ray out;
+//    out.o=o.p; out.o.setW(1);
+//    out.n=nr.normalized();
+//    out.ni=i.ni;
+//    KDTree::IR ir=kdtree.Intersect(out);
+//    if(ir.valid)
+//    {
+//      specular = MonteCarloSample(ir.hp, out, length+1, debuginfo) * o.geo->specular;
+//    }
   }
 
   // Refraction

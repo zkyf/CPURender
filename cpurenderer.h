@@ -245,6 +245,8 @@ public:
   void GeometryShader(Geometry& geo);
   void FragmentShader(DepthFragment& frag);
   void Clip(QVector4D A, bool dir, QVector<QVector4D> g, GI i, bool& dirty, bool pers=true);
+
+  double* hits;
 };
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x);

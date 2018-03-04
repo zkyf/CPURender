@@ -8,6 +8,7 @@
 #else
 #define CUDA_CALLABLE_MEMBER
 #include <math.h>
+#include "ray.h"
 
 struct CudaVec;
 struct CudaVec4;
@@ -20,7 +21,7 @@ struct CudaVec
   double x, y, z;
 
   CUDA_CALLABLE_MEMBER CudaVec(double _x=0.0, double _y=0.0, double _z=0.0) : x(_x), y(_y), z(_z) {}
-
+  CUDA_CALLABLE_MEMBER CudaVec(QVector3D a) : x(a.x()), y(a.y()), z(a.z()) {}
 };
 
 struct CudaVec4
@@ -58,6 +59,12 @@ struct CudaRay
 {
   CudaVec4 o;
   CudaVec4 n;
+
+  void FromRay(const Ray& i)
+  {
+    n = CudaVec4(i.n.x(), i.n.y(), i.n.z(), 0.0);
+    o = CudaVec4(i.o.x(), i.o.y(), i.o.z(), 1.0);
+  }
 };
 
 #endif
