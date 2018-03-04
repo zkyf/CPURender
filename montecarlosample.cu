@@ -8,9 +8,10 @@
 
 static CudaGeometry* dev_geos = nullptr;
 static int n = 0;
+static FILE* cudaOutput;
 
 extern "C"
-__global__ void IntersectGeo(CudaGeometry* geolist, int n, CudaRay ray)
+__global__ void IntersectGeo(CudaGeometry* geolist, int n, const CudaRay& ray)
 {
   if(blockIdx.x<n)
   {
@@ -34,12 +35,15 @@ __global__ void testKernel(int val)
 extern "C"
 void CudaIntersect(const CudaRay& ray)
 {
-  IntersectGeo<<n, 1>>(dev_geos, n, ray);
+  printf("into cuda part\n");
+  IntersectGeo<<<n, 1>>>(dev_geos, n, ray);
 }
 
 extern "C"
-void CudaInit(CudaGeometry* geos)
+void CudaInit(CudaGeometry* geos, int _n)
 {
+  cudaOutput = fopen("cudaoutput.txt", "w");
+  fprintf(cudaOutput, "cuda part init %d\n", _n);
   if(!geos)
   {
     return;
@@ -50,24 +54,7 @@ void CudaInit(CudaGeometry* geos)
     cudaFree(dev_geos);
   }
 
-  n = input.size();
-  for(int i=0; i<input; i++)
-  {
-    CudaGeometry newg;
-    newg.index=i;
-    newg.diffuse = CudaVec(input[i].diffuse.r, input[i].diffuse.g, input[i].diffuse.b);
-    newg.emission = CudaVec(input[i].emission.r, input[i].emission.g, input[i].emission.b);
-    newg.specular = CudaVec(input[i].specular.r, input[i].specular.g, input[i].specular.b);
-    newg.reflectr = input[i].reflectr;
-    newg.refractr = input[i].refractr;
-
-    for(int j=0; j<input[i].vecs.size(); j++)
-    {
-      newg.vecs[j].p = input[i].vecs[j].p;
-      newg.vecs[j].n = input[i].vecs[j].n;
-      newg.vecs[j].geo = i;
-    }
-  }
+  n = _n;
 
   cudaMalloc((void**)&dev_geos, sizeof(CudaGeometry)*n);
   cudaMemcpy(dev_geos, geos, sizeof(CudaGeometry)*n, cudaMemcpyHostToDevice);
@@ -76,10 +63,8 @@ void CudaInit(CudaGeometry* geos)
 extern "C"
 void CudaEnd()
 {
-  if(geos)
+  if(dev_geos)
   {
-    delete[] geos;
-    geos = nullptr;
     cudaFree(dev_geos);
   }
 }

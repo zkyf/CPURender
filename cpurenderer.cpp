@@ -1,7 +1,7 @@
 #include "cpurenderer.h"
 
-extern "C" void CudaIntersect(const Ray& ray);
-extern "C" void CudaInit(QVector<Geometry> input);
+extern "C" void CudaIntersect(const CudaRay& ray);
+extern "C" void CudaInit(CudaGeometry* input, int _n);
 extern "C" void CudaEnd();
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x)
@@ -857,7 +857,27 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 
 uchar* CPURenderer::MonteCarloRender()
 {
-  CudaInit(input);
+  CudaGeometry* geos = new CudaGeometry[input.size()];
+  for(int i=0; i<input.size(); i++)
+  {
+    CudaGeometry newg;
+    newg.index=i;
+    newg.diffuse = CudaVec(input[i].diffuse.r, input[i].diffuse.g, input[i].diffuse.b);
+    newg.emission = CudaVec(input[i].emission.r, input[i].emission.g, input[i].emission.b);
+    newg.specular = CudaVec(input[i].specular.r, input[i].specular.g, input[i].specular.b);
+    newg.reflectr = input[i].reflectr;
+    newg.refractr = input[i].refractr;
+
+    for(int j=0; j<input[i].vecs.size(); j++)
+    {
+      newg.vecs[j].p = CudaVec4(input[i].vecs[j].p.x(), input[i].vecs[j].p.y(), input[i].vecs[j].p.z(), 1.0);
+      newg.vecs[j].n = CudaVec4(input[i].vecs[j].n.x(), input[i].vecs[j].n.y(), input[i].vecs[j].n.z(), 1.0);
+      newg.vecs[j].geo = i;
+    }
+    geos[i] = newg;
+  }
+
+  CudaInit(geos, input.size());
   kdtree.SetTree(input);
 //  kdtree.Print();
   colorBuffer.Clear();
@@ -933,8 +953,12 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
   {
     qDebug() << "";
     qDebug() << "MonteCarloSample : #" << length << i;
-//    CudaIntersect(i);
     qDebug() << o.p;
+
+    CudaRay cray;
+    cray.n = CudaVec4(i.n.x(), i.n.y(), i.n.z(), i.n.w());
+    cray.o = CudaVec4(i.o.x(), i.o.y(), i.o.z(), i.o.w());
+    CudaIntersect(cray);
   }
 
   ColorPixel result = (0.0, 0.0, 0.0, 0.0);

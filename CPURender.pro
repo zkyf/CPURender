@@ -34,7 +34,8 @@ SOURCES += main.cpp\
     mesh.cpp \
     ray.cpp \
     geometry.cpp \
-    kdtree.cpp
+    kdtree.cpp \
+    cugeometry.cpp
 
 HEADERS  += mainwindow.h \
     cpurenderer.h \
@@ -49,9 +50,6 @@ HEADERS  += mainwindow.h \
     kdtree.h \
     cugeometry.h
 
-DISTFILES += \
-    montecarlosample.cu
-
 FORMS    += mainwindow.ui
 
 # opencv
@@ -61,8 +59,7 @@ LIBS += "C:/Libs/OpenCV31/opencv/build/x64/vc14/lib/opencv_world310.lib"
 #-------------------------------------------------
 
 # CUDA settings
-CUDA_SOURCES += montecarlosample.cu \
-cugeometry.h
+CUDA_SOURCES += montecarlosample.cu
 
 CUDA_DIR = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0/"                # Path to cuda toolkit install
 SYSTEM_NAME = x64                 # Depending on your system either 'Win32', 'x64', or 'Win64'

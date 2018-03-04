@@ -181,12 +181,12 @@ void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
   if(method==MCRT)
   {
     Ray ray = render.GetRay(pp.x(), pp.y());
-    KDTree::IR ir = render.kdtree.Intersect(ray, true);
+    KDTree::IR ir = render.kdtree.Intersect(ray);
     qDebug() << ir.valid << ir.d;
     if(ir.valid)
     {
       qDebug() << ir.geo->name << ir.geo->reflectr;
-//      render.MonteCarloSample(ir.hp, ray, 0, true);
+      render.MonteCarloSample(ir.hp, ray, 0, true);
     }
   }
   qDebug() << "color=" << render.colorBuffer.buffer[(int)(pp.x()+pp.y()*render.Size().width())];

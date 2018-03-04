@@ -20,6 +20,7 @@
 #include "geometry.h"
 #include "ray.h"
 #include "kdtree.h"
+#include "cugeometry.h"
 
 #include <opencv2/opencv.hpp>
 using namespace cv;
