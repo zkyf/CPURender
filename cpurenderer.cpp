@@ -1,5 +1,9 @@
 #include "cpurenderer.h"
 
+extern "C" void CudaIntersect(const Ray& ray);
+extern "C" void CudaInit(QVector<Geometry> input);
+extern "C" void CudaEnd();
+
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x)
 {
   return QVector3D(
@@ -87,6 +91,8 @@ CPURenderer::CPURenderer(QSize s) :
 CPURenderer::~CPURenderer()
 {
   delete[] stencilBuffer;
+
+  CudaEnd();
 }
 
 uchar* CPURenderer::Render()
@@ -851,6 +857,7 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 
 uchar* CPURenderer::MonteCarloRender()
 {
+  CudaInit(input);
   kdtree.SetTree(input);
 //  kdtree.Print();
   colorBuffer.Clear();
@@ -926,6 +933,7 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
   {
     qDebug() << "";
     qDebug() << "MonteCarloSample : #" << length << i;
+//    CudaIntersect(i);
     qDebug() << o.p;
   }
 
