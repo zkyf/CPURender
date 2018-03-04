@@ -951,15 +951,22 @@ ColorPixel CPURenderer::MonteCarloSample(const VertexInfo o, const Ray &i, int l
 {
   if(debuginfo)
   {
+    printf("test\n");
+    fflush(stdout);
     qDebug() << "";
     qDebug() << "MonteCarloSample : #" << length << i;
     qDebug() << o.p;
 
-    CudaRay cray;
-    cray.n = CudaVec4(i.n.x(), i.n.y(), i.n.z(), i.n.w());
-    cray.o = CudaVec4(i.o.x(), i.o.y(), i.o.z(), i.o.w());
-    CudaIntersect(cray);
+    if(length<=nop)
+    {
+      CudaRay cray;
+      cray.n = CudaVec4(i.n.x(), i.n.y(), i.n.z(), 0.0);
+      cray.o = CudaVec4(i.o.x(), i.o.y(), i.o.z(), 1.0);
+      CudaIntersect(cray);
+    }
   }
+
+  return o.geo->diffuse;
 
   ColorPixel result = (0.0, 0.0, 0.0, 0.0);
 
