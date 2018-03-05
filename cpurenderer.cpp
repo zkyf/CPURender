@@ -1,7 +1,7 @@
 #include "cpurenderer.h"
 
 extern "C" void CudaIntersect(CudaRay ray);
-extern "C" void CudaInit(CudaGeometry* input, int _n, double* hits);
+extern "C" void CudaInit(CudaGeometry* input, int _n, double* hits, double* randNum, int _randN);
 extern "C" void CudaEnd();
 extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer);
 
@@ -860,15 +860,18 @@ void CPURenderer::FragmentShader(DepthFragment &frag)
 
 uchar* CPURenderer::MonteCarloRender()
 {
+  colorBuffer.Clear();
+  depthBuffer.Clear();
   if(hits)
   {
     delete[] hits;
     hits = nullptr;
   }
 
+  CudaGeometry* geos=nullptr;
   if(input.size()>0)
   {
-    CudaGeometry* geos = new CudaGeometry[input.size()];
+    geos = new CudaGeometry[input.size()];
     for(int i=0; i<input.size(); i++)
     {
       CudaGeometry newg;
@@ -888,7 +891,13 @@ uchar* CPURenderer::MonteCarloRender()
       geos[i] = newg;
     }
     hits = new double[input.size()];
-    CudaInit(geos, input.size(), hits);
+    double* randNum = new double[10000];
+    for(int i=0; i<10000; i++)
+    {
+      randNum[i] = (double)(rand()%nos)/nos;
+    }
+    printf("HOST: sizeof(CudaGeometry)=%d, sizeof(CudaVec)=%d n=%d\n", sizeof(CudaGeometry), sizeof(CudaVec), input.size());
+    CudaInit(geos, input.size(), hits, randNum, 10000);
   }
 
   CudaVec* buffer = new CudaVec[size.width()*size.height()];
@@ -904,16 +913,19 @@ uchar* CPURenderer::MonteCarloRender()
       colorBuffer.buffer[index].a = 1.0;
     }
   }
+  if(geos)
+  {
+    delete[] geos;
+  }
+  delete[] buffer;
   return colorBuffer.ToUcharArray();
 
   for(GI i=input.begin(); i!=input.end(); i++)
   {
     i->gi = i;
   }
-  kdtree.SetTree(input);
+//  kdtree.SetTree(input);
 //  kdtree.Print();
-  colorBuffer.Clear();
-  depthBuffer.Clear();
   const int xspp = 1; // subpixels on x
   const int yspp = 1; // subpixels on y
 
@@ -930,7 +942,7 @@ uchar* CPURenderer::MonteCarloRender()
         Ray ray = GetRay(xx, yy);
 //        colorBuffer.buffer[yy*size.width()+xx] = (ray.n+QVector4D(1.0, 1.0, 1.0, 1.0))/2;
 //        colorBuffer.buffer[yy*size.width()+xx].a = 1.0;
-//        continue;
+        continue;
 //          for(GI geo=input.begin(); geo!=input.end(); geo++)
         {
 
