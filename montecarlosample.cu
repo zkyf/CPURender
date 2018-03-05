@@ -42,6 +42,7 @@ struct CudaVec4
 
 __host__ __device__ CudaVec operator+(const CudaVec& a, const CudaVec& b)    { return CudaVec(a.x+b.x, a.y+b.y, a.z+b.z); }
 __host__ __device__ CudaVec operator-(const CudaVec& a, const CudaVec& b)    { return CudaVec(a.x-b.x, a.y-b.y, a.z-b.z); }
+__host__ __device__ CudaVec operator*(const CudaVec& a, const CudaVec& b)    { return CudaVec(a.x*b.x, a.y*b.y, a.z*b.z); }
 __host__ __device__ CudaVec operator*(const CudaVec& a, const double& b)     { return CudaVec(a.x*b, a.y*b, a.z*b); }
 __host__ __device__ CudaVec operator*(const double& b, const CudaVec& a)     { return CudaVec(a.x*b, a.y*b, a.z*b); }
 __host__ __device__ CudaVec operator/(const CudaVec& a, const double& b)     { return CudaVec(a.x/b, a.y/b, a.z/b); }
@@ -264,9 +265,26 @@ void CudaEnd()
   }
 }
 
-__device__ CudaVec CudaMonteCarloSample(CudaVertex o, CudaRay i, int depth)
+__device__ CudaVec CudaMonteCarloSample(CudaGeometry* geolist, int n, CudaVertex o, CudaRay i)
 {
-
+  CudaVec currentColor=geolist[o.geo].diffuse;
+  for(int level=0; level<5; i++)
+  {
+    float theta=rand();
+    float phi=rand();
+    CudaRay ray;
+    ray.o=o.p;
+    ray.n;
+    for(int i=0; i<n; i++)
+    {
+      CudaVertex hp = ray.IntersectGeo(geolist[i]);
+      if(hp.valid)
+      {
+        currentColor = currentColor * geolist[hp.geo].diffuse + currentColor * geolist[hp.geo].emission;
+      }
+    }
+  }
+  return currentColor;
 }
 
 __device__ CudaRay GetRay(int xx, int yy, int width, int height, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right)
