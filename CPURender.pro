@@ -150,7 +150,7 @@ CONFIG(debug, debug|release) {
     cuda_d.input = CUDA_SOURCES
     cuda_d.output = $$CUDA_OBJECTS_DIR/${QMAKE_FILE_BASE}_cuda.o
     cuda_d.commands = $$CUDA_DIR/bin/nvcc.exe -D_DEBUG -G -g $$NVCC_OPTIONS $$CUDA_INC $$NVCC_LIBS \
-                      --machine $$SYSTEM_TYPE -arch=$$CUDA_ARCH -code=$$CUDA_CODE \
+                      --machine $$SYSTEM_TYPE -arch=$$CUDA_ARCH -code=$$CUDA_CODE -lineinfo \
                       --compile -cudart static -g -DWIN32 -D_MBCS \
                       -Xcompiler "/wd4819,/EHsc,/W3,/nologo,/Od,/Zi,/RTC1" \
                       -Xcompiler $$MSVCRT_LINK_FLAG_DEBUG \

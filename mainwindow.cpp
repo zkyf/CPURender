@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right);
+
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow)
@@ -168,6 +170,7 @@ void MainWindow::NewFrame()
 void MainWindow::on_graphicsView_ResizeEvent(QResizeEvent *)
 {
   QSize s = ui->graphicsView->size();
+  rendersize = s;
   s.setWidth(s.width()-30);
   s.setHeight(s.height()-30);
   render.Resize(s);
@@ -184,13 +187,14 @@ void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
     KDTree::IR ir = render.kdtree.Intersect(ray);
     qDebug() << ir.valid << ir.d;
     ir.hp.valid=ir.valid;
+    CudaGetRayTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
 //    if(ir.valid)
     {
 //      qDebug() << ir.geo->name << ir.geo->reflectr;
-      render.MonteCarloSample(ir.hp, ray, 0, true);
+//      render.MonteCarloSample(ir.hp, ray, 0, true);
     }
   }
-  qDebug() << "color=" << render.colorBuffer.buffer[(int)(pp.x()+pp.y()*render.Size().width())];
+  qDebug() << "color=" << pp << render.colorBuffer.buffer[(int)(pp.x()+pp.y()*render.Size().width())];
   qDebug() << "clicked";
   pulling = true;
   lastp = pp;

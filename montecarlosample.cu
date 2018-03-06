@@ -35,6 +35,8 @@ struct CudaVec
   __host__ __device__ double Length()                 const { return sqrt(x*x+y*y+z*z); }
   __host__ __device__ CudaVec Normalized()            const { return CudaVec(x/Length(), y/Length(), z/Length()); }
   __host__ __device__ void Print()                    const { printf("CudaVec(%lf, %lf, %lf)", x, y, z); }
+
+  __host__ __device__ void operator=(const CudaVec& b) { x=b.x; y=b.y; z=b.z; }
 };
 
 struct CudaVec4
@@ -57,23 +59,21 @@ __host__ __device__ CudaVec operator*(const CudaVec& a, const CudaVec& b)    { r
 __host__ __device__ CudaVec operator*(const CudaVec& a, const double& b)     { return CudaVec(a.x*b, a.y*b, a.z*b); }
 __host__ __device__ CudaVec operator*(const double& b, const CudaVec& a)     { return CudaVec(a.x*b, a.y*b, a.z*b); }
 __host__ __device__ CudaVec operator/(const CudaVec& a, const double& b)     { return CudaVec(a.x/b, a.y/b, a.z/b); }
-__host__ __device__ CudaVec operator/(const double& b, const CudaVec& a)     { return CudaVec(a.x/b, a.y/b, a.z/b); }
 
 __host__ __device__ CudaVec4 operator+(const CudaVec4& a, const CudaVec4& b) { return CudaVec4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w); }
 __host__ __device__ CudaVec4 operator-(const CudaVec4& a, const CudaVec4& b) { return CudaVec4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w); }
 __host__ __device__ CudaVec4 operator*(const CudaVec4& a, const double& b)   { return CudaVec4(a.x*b, a.y*b, a.z*b, a.w*b); }
 __host__ __device__ CudaVec4 operator*(const double& b, const CudaVec4& a)   { return CudaVec4(a.x*b, a.y*b, a.z*b, a.w*b); }
 __host__ __device__ CudaVec4 operator/(const CudaVec4& a, const double& b)   { return CudaVec4(a.x/b, a.y/b, a.z/b, a.w/b); }
-__host__ __device__ CudaVec4 operator/(const double& b, const CudaVec4& a)   { return CudaVec4(a.x/b, a.y/b, a.z/b, a.w/b); }
 
 struct CudaVertex
 {
   CudaVec4 p;
   CudaVec4 n;
-  bool valid = true;
+  bool valid;
   int geo;
 
-  __host__ __device__ CudaVertex(bool v=true) : valid(v) {}
+  __host__ __device__ CudaVertex(bool v=true) : valid(v), p(), n(), geo(-1) {}
   __host__ __device__ static CudaVertex Intersect(const CudaVertex& a, const CudaVertex& b, double r)
   {
     CudaVertex result;
@@ -84,6 +84,13 @@ struct CudaVertex
     result.geo = a.geo;
 
     return result;
+  }
+  __host__ __device__ void operator=(const CudaVertex& b)
+  {
+    p=b.p;
+    n=b.n;
+    valid=b.valid;
+    geo=b.geo;
   }
 };
 
@@ -125,10 +132,9 @@ struct CudaRay
   CudaVec4 o;
   CudaVec4 n;
 
-  __host__ __device__ CudaVertex IntersectGeo(const CudaGeometry& geo) const
+  __host__ __device__ void IntersectGeo(const CudaGeometry& geo, CudaVertex& result) const
   {
 //    printf("CudaRay IntersectGeo # %d: o=(%lf, %lf, %lf), n=(%lf, %lf, %lf)\n", geo.index, o.x, o.y, o.z, n.x, n.y, n.z);
-//    return CudaVertex(false);
 //    geo.Print();
     CudaVec4 pi = geo.Plane();
     const CudaVertex c = geo.vecs[0];
@@ -141,17 +147,26 @@ struct CudaRay
     if(fabs(pn)<1e-3)
     {
 //      printf("CudaRay IntersectGeo: o=(%lf, %lf, %lf), n=(%lf, %lf, %lf), parallel geo # %d  pi=(%lf, %lf, %lf, %lf)\n", o.x, o.y, o.z, n.x, n.y, n.z, geo.index, pi.x, pi.y, pi.z, pi.w);
-      return CudaVertex(false);
+      result.valid=false;
+      return;
     }
+
     double r = -pi.Dot(o)/pn;
+
 //    printf("r=%lf, pn=%lf\n", r, pn);
-    if(r<0) return CudaVertex(false);
+    if(r<0)
+    {
+      result.valid=false;
+      return;
+    }
     CudaVec4 p=r*n+o; // intersection point with the plane
+
 //    printf("CudaRay IntersectGeo: o=(%lf, %lf, %lf), n=(%lf, %lf, %lf), hit geo # %d @ p=(%lf, %lf, %lf)\n", o.x, o.y, o.z, n.x, n.y, n.z, geo.index, p.x, p.y, p.z);
 
     if((c.p-p).Vec3().Length()<1e-3)
     {
-      CudaVertex(false);
+      result.valid=false;
+      return;
     }
 
     CudaVec4 cp = p-c.p;
@@ -161,7 +176,6 @@ struct CudaRay
     CudaVec4 cb = b.p - c.p;
     CudaVec4 cd = ca.Dot(cpn)*cpn;
     CudaVec4 ce = cb.Dot(cpn)*cpn;
-    CudaVertex(false);
 
 //    printf("cp="); cp.Print(); printf("\n");
 //    printf("ca="); ca.Print(); printf("\n");
@@ -169,26 +183,55 @@ struct CudaRay
 //    printf("cd="); cd.Print(); printf("\n");
 //    printf("ce="); ce.Print(); printf("\n");
 
-    double rb = (ca-cd).Length()/(cb-ce).Length();
-    if((ca-cd).Dot(cb-ce)>0) rb=-rb;
-    rb = rb/(1+rb);
-    double ra = 1-rb;
+    if((ca-cd).Dot(cb-ce)>0)
+    {
+      result.valid=false;
+      return;
+    }
+    double rb, ra;
+    if((cb-ce).Length()>1e-3)
+    {
+      rb = (ca-cd).Length()/(cb-ce).Length();
+      if(rb<0 || rb>1)
+      {
+        result.valid=false;
+        return;
+      }
+      rb = rb/(1+rb);
+      ra = 1-rb;
+    }
+    else
+    {
+      ra = 0;
+      rb = 1.0;
+    }
     CudaVec4 f = rb*b.p+ra*a.p;
+    if((f-c.p).Length()<1e-3)
+    {
+      result.valid=false;
+      return;
+    }
     double rc = 1-cp.Length()/(f-c.p).Length();
-    if(cp.Dot(f-geo.vecs[0].p)<0) rc=-1;
+    if(cp.Dot(f-c.p)<0)
+    {
+      result.valid=false;
+      return;
+    }
 
 //    printf("ra=%lf rb=%lf rc=%lf\n", ra, rb, rc);
 
-    if(ra<0 || rb<0 || rc<0 || ra>1 || rb>1 || rc>1) return CudaVertex(false);
+    if(ra<0 || rb<0 || rc<0 || ra>1 || rb>1 || rc>1)
+    {
+      result.valid=false;
+      return;
+    }
     else
     {
       CudaVertex vf = CudaVertex::Intersect(a, b, ra);
       CudaVertex vp = CudaVertex::Intersect(c, vf, rc);
       vp.geo = geo.index;
       vp.valid=true;
-  //    if((p-vp.p).length()>1e-3) return VertexInfo(false);
-  //    qDebug() << "p=" << p << On(p) << "p-p'=" << (p-vp.p).length() << "ra=" << ra << "rb=" << rb << "rc=" << rc;
-      return vp;
+      result = vp;
     }
   }
 
@@ -202,29 +245,6 @@ static double* hits = nullptr;
 static double* dev_hits = nullptr;
 static double* dev_randNum = nullptr;
 static int randN = 0;
-
-//__global__ void IntersectGeo(CudaGeometry* geolist, int n, CudaRay ray, double* dev_hits)
-//{
-////  printf("\n");
-////  printf("CUDA block (%d, %d, %d) thread (%d %d %d) : ray\n", blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z);
-//  if(blockIdx.x<n)
-//  {
-//    CudaVertex hp = ray.IntersectGeo(geolist[blockIdx.x]);
-////    ray.Print();
-////    printf("\n");
-//    if(hp.valid)
-//    {
-////      printf("CUDA # %d : hit geo with index # %d\n", blockIdx.x, geolist[blockIdx.x].index);
-//      dev_hits[blockIdx.x]=(hp.p-ray.o).Vec3().Length();
-//    }
-//    else
-//    {
-////      printf("CUDA # %d : NOT hit geo with index # %d\n", blockIdx.x, geolist[blockIdx.x].index);
-//      dev_hits[blockIdx.x]=-1;
-//    }
-//  }
-////  printf("\n");
-//}
 
 extern "C"
 void CudaIntersect(CudaRay ray)
@@ -302,64 +322,71 @@ void CudaEnd()
   }
 }
 
-__device__ CudaVec CudaMonteCarloSample(CudaGeometry* geolist, int n, CudaVertex o, CudaRay i, double* randNum, int randN)
+extern "C"
+__device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, CudaVertex o, CudaRay i, double* randNum, int randN, CudaVec& result)
 {
-  CudaVec currentColor=geolist[o.geo].diffuse;
+//  result = (i.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2;
+  return;
 
-  if(o.n.Dot(i.n),0) o.n = -1.0*o.n;
-  return (o.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2.0;
+//  if(!o.valid) return;
 
-  bool haslight=false;
-  for(int level=0; level<5; level++)
-  {
-    if(!o.valid) break;
-    float sin2theta=randNum[level]; // sin^2(theta)
-    float sintheta=sqrt(sin2theta);
-    float phi = randNum[level*19]*2*M_PI;
-    CudaRay ray;
-    ray.o=o.p;
-    CudaVec w = o.n.Vec3();
-    CudaVec u = (fabs(w.x)>0.1?CudaVec(0, 1):CudaVec(1)).Cross(w);
-    CudaVec v = w.Cross(u);
-    ray.n = CudaVec4(sintheta*cos(phi)*u+v*sintheta*sin(phi)+w*sqrt(1-sin2theta), 0);
+//  CudaVec currentColor=geolist[o.geo].diffuse;
+//  if(o.n.Dot(i.n),0) o.n = -1.0*o.n;
 
-    double mind=1e20;
-    CudaVertex minp(false);
+//  bool haslight=false;
+//  for(int level=0; level<5; level++)
+//  {
+//    if(!o.valid) break;
+//    float sin2theta=randNum[level]; // sin^2(theta)
+//    float sintheta=sqrt(sin2theta);
+//    float phi = randNum[level*19]*2*M_PI;
+//    CudaRay ray;
+//    ray.o=o.p;
+//    CudaVec w = o.n.Vec3();
+//    CudaVec u = (fabs(w.x)>0.1?CudaVec(0, 1):CudaVec(1)).Cross(w);
+//    CudaVec v = w.Cross(u);
+//    ray.n = CudaVec4(sintheta*cos(phi)*u+v*sintheta*sin(phi)+w*sqrt(1-sin2theta), 0);
 
-    for(int i=0; i<n; i++)
-    {
-      CudaVertex hp = ray.IntersectGeo(geolist[i]);
-      if(hp.valid)
-      {
-        if((hp.p-o.p).Length()>1e-3 && (hp.p-o.p).Length()<mind)
-        {
-          mind=(hp.p-o.p).Length();
-          minp=hp;
-        }
-      }
-    }
+//    double mind=1e20;
+//    CudaVertex minp(false);
 
-    if(minp.valid)
-    {
-      currentColor = currentColor * geolist[minp.geo].diffuse + currentColor * geolist[minp.geo].emission;
-      if(geolist[minp.geo].emission.Length()>0.1)
-      {
-        haslight=true;
-      }
-    }
+//    for(int i=0; i<n; i++)
+//    {
+//      CudaVertex hp;
+//      ray.IntersectGeo(geolist[i], hp);
+//      if(hp.valid)
+//      {
+//        if((hp.p-o.p).Length()>1e-3 && (hp.p-o.p).Length()<mind)
+//        {
+//          mind=(hp.p-o.p).Length();
+//          minp=hp;
+//        }
+//      }
+//    }
 
-    o = minp;
-  }
-  if(haslight)
-  {
-    return currentColor;
-  }
-  else
-  {
-    return CudaVec();
-  }
+//    if(minp.valid)
+//    {
+//      currentColor = currentColor * geolist[minp.geo].diffuse + currentColor * geolist[minp.geo].emission;
+//      if(geolist[minp.geo].emission.Length()>0.1)
+//      {
+//        haslight=true;
+//      }
+//    }
+
+//    o = minp;
+//  }
+//  if(haslight)
+//  {
+//    result = currentColor;
+//    return;
+//  }
+//  else
+//  {
+//    return;
+//  }
 }
 
+extern "C"
 __device__ CudaRay GetRay(int xx, int yy, int width, int height, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right)
 {
   float vh = M_PI/3;
@@ -374,6 +401,26 @@ __device__ CudaRay GetRay(int xx, int yy, int width, int height, CudaVec camera,
   return ray;
 }
 
+extern "C"
+__global__ void debug_GetRay(int xx, int yy, int width, int height, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaRay* result)
+{
+  printf("debug_GetRay\n");
+  float vh = M_PI/3;
+  float vw = vh/height * width;
+  float vhp = vh/height;
+  float vwp = vw/width;
+
+  CudaRay ray;
+  ray.o = CudaVec4(camera, 1.0);
+  ray.n = CudaVec4((forward+right*tan(vwp*xx-vw/2)+up*tan(vhp*(height - yy - 1)-vh/2)).Normalized(), 0.0);
+
+  printf("ray.n=(%lf, %lf, %lf)\n", ray.n.x, ray.n.y, ray.n.z);
+  *result = ray;
+}
+
+#define SampleNum (32)
+
+extern "C"
 __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer, double* randNum, int randN)
 {
   if(n==0) return;
@@ -381,22 +428,23 @@ __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int w, int h,
   int xx=blockIdx.x;
   int yy=blockIdx.y;
   if(xx<0 || xx>=w || yy<0 || yy>=h) return;
-  int index = xx+yy*w;
+  int index = xx+yy*gridDim.x;
   CudaRay ray = GetRay(xx, yy, w, h, camera, up, forward, right);
-  buffer[index]=CudaVec(0, 0, 0);
+  buffer[index] = CudaVec(0, 0, 0);
 
-  double mind=1e20;
-  CudaVertex minp(false);
-  int hitcount=0;
-
-  for(int count=0; count<32; count++)
+  for(int sp=0; sp<SampleNum; sp++)
   {
+    double mind=1e20;
+    CudaVertex minp(false);
+
+    buffer[index] = buffer[index]+(ray.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2;
+
     for(int gi=0; gi<n; gi++)
     {
       CudaVertex hp(false);
       CudaGeometry geo = geolist[gi];
-      hp = ray.IntersectGeo(geo);
-      if(hp.valid)
+      ray.IntersectGeo(geo, hp);
+      if(hp.valid==true)
       {
         double d=(hp.p.Vec3()-camera).Length();
         if(d>1e-3 && d<mind)
@@ -407,19 +455,29 @@ __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int w, int h,
       }
     }
 
-//    if(minp.valid)
-//    {
-//      hitcount++;
-//      buffer[index] = buffer[index] + CudaMonteCarloSample(geolist, n, minp, ray, randNum, randN);
-//    }
+    if(minp.valid)
+    {
+//      minp.valid=false;
+      CudaVec result;
+      CudaMonteCarloSample(geolist, n, minp, ray, randNum, randN, result);
+      buffer[index] = CudaVec(0.0, 0.0, 0.0);
+//      buffer[index] = buffer[index] + result;
+    }
   }
 
-//  if(hitcount>0)
-//  {
-//    buffer[index] = buffer[index]/hitcount;
-//  }
+  buffer[index] = buffer[index]/SampleNum;
 
   return;
+}
+
+extern "C"
+__global__ void CudaDivide(int w, int h, CudaVec* buffer)
+{
+  int xx=blockIdx.x;
+  int yy=blockIdx.y;
+  if(xx<0 || xx>=w || yy<0 || yy>=h) return;
+  int index = xx+yy*gridDim.x;
+  buffer[index] = buffer[index]/4;
 }
 
 extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer)
@@ -431,7 +489,11 @@ extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec for
   printf("start cuda render\n");
   printf("buffer.size=%d %d\n", sizeof(buffer), sizeof(buffer)/sizeof(CudaVec));
   fflush(stdout);
-  CudaMonteCarloRender<<<dim3(w, h), 1>>>(dev_geos, n, w, h, camera, up, forward, right, dev_buffer, dev_randNum, randN);
+//  for(int i=0; i<4; i++)
+//  {
+    CudaMonteCarloRender<<<dim3(w, h), 1>>>(dev_geos, n, w, h, camera, up, forward, right, dev_buffer, dev_randNum, randN);
+//  }
+//  CudaDivide<<<dim3(w, h), 1>>>(w, h, dev_buffer);
   fflush(stdout);
   printf("end cuda render\n");
   fflush(stdout);
@@ -441,4 +503,24 @@ extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec for
 
   gpuErrchk( cudaMemcpy(buffer, dev_buffer, sizeof(CudaVec)*w*h, cudaMemcpyDeviceToHost));
   gpuErrchk( cudaFree(dev_buffer));
+}
+
+extern "C"
+void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right)
+{
+  printf("CudaGetRayTest: %d %d %d %d\n", xx, yy, w, h);
+  camera.Print(); up.Print(); forward.Print(); right.Print();
+  printf("\n");
+  CudaRay result;
+  CudaRay* dev_result;
+
+  cudaMalloc((void**)&dev_result, sizeof(CudaRay));
+
+  debug_GetRay<<<1, 1>>>(xx, yy, w, h, camera, up, forward, right, dev_result);
+  cudaMemcpy(&result, dev_result, sizeof(CudaRay), cudaMemcpyDeviceToHost);
+  result.Print();
+  ((result.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2).Print();
+  printf("\n");
+
+  fflush(stdout);
 }

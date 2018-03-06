@@ -72,6 +72,8 @@ private:
   QPointF lastp;
 
   RenderMethod method;
+
+  QSize rendersize;
 };
 
 #endif // MAINWINDOW_H
