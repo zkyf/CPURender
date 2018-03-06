@@ -119,9 +119,15 @@ struct CudaGeometry
   CudaVec emission = CudaVec();
   double reflectr = 0.0;
   double refractr = 0.0;
-  __host__ __device__ CudaVertex Sample() const
+  __device__ CudaVertex Sample(int& seed) const
   {
     // to do
+    CudaVertex result = vecs[0];
+    for(int i=1; i<3; i++)
+    {
+      result = CudaVertex::Intersect(result, vecs[i], CudaSudoRandom(seed));
+    }
+    return result;
   }
   __host__ __device__ CudaVec Normal() const
   {
@@ -332,7 +338,7 @@ void CudaInit(CudaGeometry* geos, int _n, int* lightList, int _ln, double* h, do
     gpuErrchk(cudaFree(dev_geos));
     gpuErrchk(cudaFree(dev_hits));
     gpuErrchk(cudaFree(dev_randNum));
-    gpuErrchk(cudeFree(dev_lightGeoList));
+    gpuErrchk(cudaFree(dev_lightGeoList));
   }
 
   n = _n;
@@ -359,18 +365,19 @@ void CudaEnd()
     gpuErrchk(cudaFree(dev_geos));
     gpuErrchk(cudaFree(dev_hits));
     gpuErrchk(cudaFree(dev_randNum));
-    gpuErrchk(cudeFree(dev_lightGeoList));
+    gpuErrchk(cudaFree(dev_lightGeoList));
   }
 }
 
 extern "C"
-__device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeoList, int ln, CudaVertex o, CudaRay i, double* randNum, int randN, CudaVec& result, int index)
+__device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeoList, int ln, CudaVertex o, CudaRay i, double* randNum, int randN, CudaVec& result, int index, bool debuginfo = false)
 {
   if(!o.valid) return;
 
   CudaVec currentColor=geolist[o.geo].diffuse;
   if(o.n.Dot(i.n),0) o.n = -1.0*o.n;
 
+  int hitcount=0;
   bool haslight=geolist[o.geo].emission.Length()>0.1;
   for(int level=0; level<5; level++)
   {
@@ -404,10 +411,15 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
 
     if(minp.valid)
     {
-      currentColor = currentColor * geolist[minp.geo].diffuse + currentColor * geolist[minp.geo].emission;
+      hitcount++;
       if(geolist[minp.geo].emission.Length()>0.1)
       {
+        currentColor = currentColor * geolist[minp.geo].emission;
         haslight=true;
+      }
+      else
+      {
+        currentColor = currentColor * geolist[minp.geo].diffuse;
       }
     }
 
@@ -421,10 +433,35 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
   else
   {
 //    result = currentColor;
-    for(int i=0; i<ln; i++)
+    result = CudaVec(0, 0, 0);
+    if(o.valid)
     {
-
+      for(int i=0; i<ln; i++)
+      {
+        for(int j=0; j<4; j++)
+        {
+          CudaVertex v = geolist[lightGeoList[i]].Sample(index);
+          CudaRay ray; ray.o = o.p; ray.n = CudaVec4((v.p.Vec3()-o.p.Vec3()).Normalized(), 0.0);
+          bool visible = true;
+          for(int k=0; k<n; k++)
+          {
+            if(k==i) continue;
+            CudaVertex ir;
+            ray.IntersectGeo(geolist[k], ir);
+            if(ir.valid)
+            {
+              break;
+            }
+          }
+          if(visible)
+          {
+            hitcount++;
+            currentColor = geolist[lightGeoList[i]].emission*currentColor;
+          }
+        }
+      }
     }
+    result = currentColor;
     return;
   }
 }
