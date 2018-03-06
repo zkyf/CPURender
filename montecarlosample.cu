@@ -501,8 +501,8 @@ extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec for
 //  gpuErrchk( cudaPeekAtLastError() );
 //  gpuErrchk( cudaDeviceSynchronize() );
 
-  gpuErrchk( cudaMemcpy(buffer, dev_buffer, sizeof(CudaVec)*w*h, cudaMemcpyDeviceToHost));
-  gpuErrchk( cudaFree(dev_buffer));
+//  gpuErrchk( cudaMemcpy(buffer, dev_buffer, sizeof(CudaVec)*w*h, cudaMemcpyDeviceToHost));
+//  gpuErrchk( cudaFree(dev_buffer));
 }
 
 extern "C"
@@ -517,7 +517,7 @@ void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, Cu
   cudaMalloc((void**)&dev_result, sizeof(CudaRay));
 
   debug_GetRay<<<1, 1>>>(xx, yy, w, h, camera, up, forward, right, dev_result);
-  cudaMemcpy(&result, dev_result, sizeof(CudaRay), cudaMemcpyDeviceToHost);
+//  cudaMemcpy(&result, dev_result, sizeof(CudaRay), cudaMemcpyDeviceToHost);
   result.Print();
   ((result.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2).Print();
   printf("\n");
