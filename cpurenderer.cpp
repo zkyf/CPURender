@@ -1,7 +1,7 @@
 #include "cpurenderer.h"
 
 extern "C" void CudaIntersect(CudaRay ray);
-extern "C" void CudaInit(CudaGeometry* input, int _n, double* hits, double* randNum, int _randN);
+extern "C" void CudaInit(CudaGeometry* geos, int _n, int* lightList, int _ln, double* h, double* randNum, int _randN);
 extern "C" void CudaEnd();
 extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer);
 extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right);
@@ -898,10 +898,10 @@ uchar* CPURenderer::MonteCarloRender()
       randNum[i] = (double)(rand()%nos)/nos;
     }
     printf("HOST: sizeof(CudaGeometry)=%d, sizeof(CudaVec)=%d n=%d\n", sizeof(CudaGeometry), sizeof(CudaVec), input.size());
-    CudaInit(geos, input.size(), hits, randNum, 10000);
+    CudaInit(geos, input.size(), lightGeoList.data(), lightGeoList.size(), hits, randNum, 10000);
   }
 
-  CudaVec* buffer = new CudaVec[size.width()*size.height()];
+  CudaVec* buffer = new CudaVec[size.width()*size.height()+10];
   CudaRender(size.width(), size.height(), CudaVec(camera.translation()), CudaVec(camera.up()), CudaVec(camera.forward()), CudaVec(camera.right()), buffer);
   for(int yy=0; yy<size.height(); yy++)
   {

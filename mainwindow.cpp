@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right);
+extern "C" void CudaIntersect(CudaRay ray);
 
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
@@ -184,10 +185,12 @@ void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
   if(method==MCRT)
   {
     Ray ray = render.GetRay(pp.x(), pp.y());
-    KDTree::IR ir = render.kdtree.Intersect(ray);
-    qDebug() << ir.valid << ir.d;
-    ir.hp.valid=ir.valid;
-    CudaGetRayTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
+//    KDTree::IR ir = render.kdtree.Intersect(ray);
+//    qDebug() << ir.valid << ir.d;
+//    ir.hp.valid=ir.valid;
+    CudaRay cray; cray.FromRay(ray);
+    CudaIntersect(cray);
+//    CudaGetRayTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
 //    if(ir.valid)
     {
 //      qDebug() << ir.geo->name << ir.geo->reflectr;
