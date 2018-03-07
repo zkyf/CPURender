@@ -3,6 +3,7 @@
 
 extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right);
 extern "C" void CudaIntersect(CudaRay ray);
+extern "C" void CudaMonteCarloSampleTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right);
 
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
@@ -190,7 +191,8 @@ void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
 //    ir.hp.valid=ir.valid;
     CudaRay cray; cray.FromRay(ray);
     CudaIntersect(cray);
-//    CudaGetRayTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
+    CudaMonteCarloSampleTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
+    NewFrame();
 //    if(ir.valid)
     {
 //      qDebug() << ir.geo->name << ir.geo->reflectr;

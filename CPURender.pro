@@ -35,7 +35,7 @@ SOURCES += main.cpp\
     ray.cpp \
     geometry.cpp \
     kdtree.cpp \
-    cugeometry.cpp
+    cudamontecarlothread.cpp
 
 HEADERS  += mainwindow.h \
     cpurenderer.h \
@@ -48,7 +48,8 @@ HEADERS  += mainwindow.h \
     ray.h \
     geometry.h \
     kdtree.h \
-    cugeometry.h
+    cugeometry.h \
+    cudamontecarlothread.h
 
 FORMS    += mainwindow.ui
 
@@ -174,3 +175,6 @@ else {
     cuda.dependency_type = TYPE_C
     QMAKE_EXTRA_COMPILERS += cuda
 }
+
+OTHER_FILES +=
+

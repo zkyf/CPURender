@@ -898,6 +898,7 @@ uchar* CPURenderer::MonteCarloRender()
       randNum[i] = (double)(rand()%nos)/nos;
     }
     printf("HOST: sizeof(CudaGeometry)=%d, sizeof(CudaVec)=%d n=%d\n", sizeof(CudaGeometry), sizeof(CudaVec), input.size());
+    qDebug() << "lightGeoList = " << lightGeoList;
     CudaInit(geos, input.size(), lightGeoList.data(), lightGeoList.size(), hits, randNum, 10000);
   }
 

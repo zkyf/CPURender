@@ -46,7 +46,7 @@ struct CudaVertex
 struct CudaGeometry
 {
   int index;
-
+  bool selected = false;
   CudaVertex vecs[3];
   CudaVec diffuse = CudaVec(1.0, 1.0, 1.0);
   CudaVec specular = CudaVec();
