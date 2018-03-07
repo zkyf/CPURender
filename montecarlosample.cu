@@ -22,9 +22,10 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 __device__ int CudaSudoRandomInt(int& seed)
 {
-  seed = (seed * 32983 + 92153) % 19483;
-  int result = seed % 19483;
-  return result;
+  seed++;
+//  seed = (seed * 32983 + 92153) % 19483;
+//  int result = seed % 19483;
+  return seed;
 }
 
 __device__ double CudaSudoRandom(int & seed)
@@ -119,13 +120,13 @@ struct CudaGeometry
   CudaVec emission = CudaVec();
   double reflectr = 0.0;
   double refractr = 0.0;
-  __device__ CudaVertex Sample(int& seed) const
+  __device__ CudaVertex Sample(int& seed, double* randNum, int randN) const
   {
     // to do
     CudaVertex result = vecs[0];
     for(int i=1; i<3; i++)
     {
-      result = CudaVertex::Intersect(result, vecs[i], CudaSudoRandom(seed));
+      result = CudaVertex::Intersect(result, vecs[i], randNum[CudaSudoRandomInt(seed)%randN]);
     }
     return result;
   }
@@ -265,8 +266,113 @@ struct CudaRay
 
 struct CudaKdTree
 {
+  struct Node
+  {
+    char axis;
 
-};
+    float xmin = 1e20;
+    float ymin = 1e20;
+    float zmin = 1e20;
+
+    float xmax = -1e20;
+    float ymax = -1e20;
+    float zmax = -1e20;
+
+    float value;
+    int depth;
+    Node* left;
+    Node* right;
+    Node* parent;
+    int n;
+    int* gl;
+    CudaGeometry* geolist;
+
+    __host__ __device__ Node(Node* p = nullptr) : parent(p) {}
+    __host__ __device__ ~Node()
+    {
+      if(left)
+      {
+        left->~Node();
+      }
+      if(right)
+      {
+        right->~Node();
+      }
+    }
+
+    __host__ __device__ bool Inside(CudaVec p)
+    {
+      if(p.x>=xmin && p.x<=xmax && p.y>=ymin && p.y<=ymax && p.z>=zmin && p.z<=zmax)
+      {
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    __host__ __device__ void Split()
+    {
+      if(depth==0)
+      {
+        for(int gid=0; gid<n; gid++)
+        {
+          int geo = gl[gid];
+          for(int vid=0; vid<3; vid++)
+          {
+            if(xmin>geolist[geo].vecs[vid].p.x) xmin = geolist[geo].vecs[vid].p.x;
+            if(ymin>geolist[geo].vecs[vid].p.y) ymin = geolist[geo].vecs[vid].p.y;
+            if(zmin>geolist[geo].vecs[vid].p.z) zmin = geolist[geo].vecs[vid].p.z;
+
+            if(xmax<geolist[geo].vecs[vid].p.x) xmax = geolist[geo].vecs[vid].p.x;
+            if(ymax<geolist[geo].vecs[vid].p.y) ymax = geolist[geo].vecs[vid].p.y;
+            if(zmax<geolist[geo].vecs[vid].p.z) zmax = geolist[geo].vecs[vid].p.z;
+          }
+        }
+      }
+
+      if(n<=1) { return; }
+
+      float xd = 0.0, xmean = 0.0;
+      float yd = 0.0, ymean = 0.0;
+      float zd = 0.0, zmean = 0.0;
+      int vcount = 0;
+
+      for(int gid=0; gid<n; gid++)
+      {
+        int geo = gl[gid];
+        for(int vid=0; vid<3; vid++)
+        {
+          if(!Inside(geolist[geo].vecs[vid].p.Vec3())) continue;
+          vcount++;
+          xmean += geolist[geo].vecs[vid].p.x;
+          ymean += geolist[geo].vecs[vid].p.y;
+          zmean += geolist[geo].vecs[vid].p.z;
+        }
+      }
+
+      for(int gid=0; gid<n; gid++)
+      {
+        int geo = gl[gid];
+        for(int vid=0; vid<3; vid++)
+        {
+          if(!Inside(geolist[geo].vecs[vid].p.Vec3())) continue;
+          xd += pow(geolist[geo].vecs[vid].p.x-xmean, 2);
+          yd += pow(geolist[geo].vecs[vid].p.y-ymean, 2);
+          zd += pow(geolist[geo].vecs[vid].p.z-zmean, 2);
+        }
+      }
+
+      xd/=vcount; yd/=vcount; zd/=vcount;
+
+    }
+
+  }; // end of CudaKdTree::Node
+}; // End of CudaKdTree
+
+#define SampleNum (32)
+#define RayTraceLength (5)
 
 static CudaGeometry* dev_geos = nullptr;
 static int n = 0;
@@ -304,90 +410,17 @@ __global__ void IntersectGeo(CudaGeometry* geolist, int n, CudaRay ray, double* 
 //  printf("\n");
 }
 
-extern "C"
-void CudaIntersect(CudaRay ray)
-{
-  printf("CudaIntersect n=%d\n", n);
-  ray.Print();
-  fflush(stdout);
-  IntersectGeo<<<n, 1>>>(dev_geos, n, ray, dev_hits);
-  cudaMemcpy(hits, dev_hits, sizeof(double) * n, cudaMemcpyDeviceToHost);
-  for(int i=0; i<n; i++)
-  {
-    if(hits[i] >=0 )
-    {
-//      printf("geo #%d hit\n", i);
-    }
-    else
-    {
-//      printf("geo #%d NOT hit\n", i);
-    }
-  }
-//  printf("cuda part ended");
-  fflush(stdout);
-}
-
-extern "C"
-void CudaInit(CudaGeometry* geos, int _n, int* lightList, int _ln, double* h, double* randNum, int _randN)
-{
-//  cudaOutput = fopen("cudaoutput.txt", "w");
-  hits=h;
-  printf("cuda part init %d\n", _n);
-  fflush(stdout);
-  if(!geos)
-  {
-    return;
-  }
-
-  if(!dev_geos)
-  {
-    gpuErrchk(cudaFree(dev_geos));
-    gpuErrchk(cudaFree(dev_hits));
-    gpuErrchk(cudaFree(dev_randNum));
-    gpuErrchk(cudaFree(dev_lightGeoList));
-  }
-
-  n = _n;
-  randN = _randN;
-  ln = _ln;
-
-  printf("CUDA: sizeof(CudaGeometry)=%d, sizeof(CudaVec)=%d, n=%d\n", sizeof(CudaGeometry), sizeof(CudaVec), n);
-
-  gpuErrchk( cudaMalloc((void**)&dev_geos, sizeof(CudaGeometry)*n));
-  gpuErrchk( cudaMalloc((void**)&dev_hits, sizeof(double)*n));
-  gpuErrchk( cudaMalloc((void**)&dev_lightGeoList, sizeof(int)*ln));
-  gpuErrchk( cudaMalloc((void**)&dev_randNum, sizeof(double)*randN));
-  gpuErrchk( cudaMemcpy(dev_geos, geos, sizeof(CudaGeometry)*n, cudaMemcpyHostToDevice));
-  gpuErrchk( cudaMemcpy(dev_randNum, randNum, sizeof(double)*randN, cudaMemcpyHostToDevice));
-  gpuErrchk( cudaMemcpy(dev_lightGeoList, lightList, sizeof(int)*ln, cudaMemcpyHostToDevice));
-  gpuErrchk( cudaPeekAtLastError() );
-  fflush(stdout);
-}
-
-extern "C"
-void CudaEnd()
-{
-  if(dev_geos)
-  {
-    gpuErrchk(cudaFree(dev_geos));
-    gpuErrchk(cudaFree(dev_hits));
-    gpuErrchk(cudaFree(dev_randNum));
-    gpuErrchk(cudaFree(dev_lightGeoList));
-  }
-}
-
-#define DistThres (20.0)
-#define LightSample (1)
-
 __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeoList, int ln, CudaVertex o, CudaRay i, double* randNum, int randN, CudaVec& result, int index, bool debuginfo = false)
 {
   if(!o.valid) return;
-  if(geolist[o.geo].selected) { result = CudaVec(1, 0, 0); return; }
+  o.n.w=0;
+  o.n = o.n.Normalized();
+
 
   CudaVec currentColor=geolist[o.geo].diffuse;
-  if(o.n.Dot(i.n)>0) o.n = -1.0*o.n;
 
   bool haslight=geolist[o.geo].emission.Length()>0.1;
+  CudaRay currentIn = i;
 
   if(haslight)
   {
@@ -395,33 +428,45 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
     return;
   }
 
-  for(int level=0; level<5; level++)
+  for(int level=0; level<RayTraceLength; level++)
   {
+    if(o.n.Dot(currentIn.n)>0) o.n = -1.0*o.n;
     if(debuginfo)
     {
       printf("======================================\n");
+      printf("Current Geo # %d: ", o.geo);
+      printf("reflect %.6lf refract %.6lf\n", geolist[o.geo].reflectr, geolist[o.geo].refractr);
       printf("Current Level: %d, index = %d\n", level, index);
       printf("CurrentO = "); o.p.Print(); printf("\n");
       printf("CurrentColor = "); currentColor.Print();
       printf("\n");
     }
-    float sin2theta=randNum[index++%randN]; // sin^2(theta)
-    float sintheta=sqrt(sin2theta);
-    float phi = randNum[index++%randN]*2*M_PI;
-    if(debuginfo)
-    {
-      printf("sin2theta = %.6lf, phi = %.6lf, index = %d\n", sin2theta, phi, index);
-    }
+
     CudaRay ray;
     ray.o=o.p;
-    CudaVec w = o.n.Vec3();
-    CudaVec u = (fabs(w.x)>0.1?CudaVec(0, 1):CudaVec(1)).Cross(w);
-    CudaVec v = w.Cross(u);
-    ray.n = CudaVec4(sintheta*cos(phi)*u+v*sintheta*sin(phi)+w*sqrt(1-sin2theta), 0);
-    if(debuginfo)
+
+    if(geolist[o.geo].reflectr>1e-3)
     {
-      printf("w = "); w.Print(); printf(", u = "); u.Print(); printf(", v = "); v.Print(); printf("\n");
-      printf("generated ray: "); ray.Print(); printf("\n");
+      ray.n = (currentIn.n-2*o.n*(currentIn.n.Dot(o.n))).Normalized();
+    }
+    else
+    {
+      float sin2theta=randNum[CudaSudoRandomInt(index)%randN]; // sin^2(theta)
+      float sintheta=sqrt(sin2theta);
+      float phi = randNum[CudaSudoRandomInt(index)%randN]*2*M_PI;
+      if(debuginfo)
+      {
+        printf("sin2theta = %.6lf, phi = %.6lf, index = %d\n", sin2theta, phi, index);
+      }
+      CudaVec w = o.n.Vec3();
+      CudaVec u = (fabs(w.x)>0.1?CudaVec(0, 1):CudaVec(1)).Cross(w);
+      CudaVec v = w.Cross(u);
+      ray.n = CudaVec4(sintheta*cos(phi)*u+v*sintheta*sin(phi)+w*sqrt(1-sin2theta), 0);
+      if(debuginfo)
+      {
+        printf("w = "); w.Print(); printf(", u = "); u.Print(); printf(", v = "); v.Print(); printf("\n");
+        printf("generated ray: "); ray.Print(); printf("\n");
+      }
     }
 
     double mind=1e20;
@@ -455,7 +500,7 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
         float r = 1.0/(minp.p-o.p).Length();
         r = r*r;
         if(r>1/fabs(ray.n.Dot(o.n))) r=1/fabs(ray.n.Dot(o.n));
-        currentColor = currentColor * geolist[minp.geo].emission * fabs(ray.n.Dot(o.n)) * r;
+        currentColor = currentColor * geolist[minp.geo].emission * fabs(ray.n.Dot(o.n)) * r * 3;
         if(debuginfo)
         {
           printf("got light color: "); geolist[minp.geo].emission.Print(); printf("\n");
@@ -468,7 +513,7 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
         float r = 1.0/(minp.p-o.p).Length();
         r = r*r;
         if(r>1) r=1;
-        currentColor = currentColor * geolist[minp.geo].diffuse * fabs(ray.n.Dot(o.n)) * r * 0.8;
+        currentColor = currentColor * geolist[minp.geo].diffuse * fabs(ray.n.Dot(o.n)) * r * 0.9;
         if(debuginfo)
         {
           printf("got diffuse color: "); geolist[minp.geo].diffuse.Print(); printf("\n");
@@ -492,6 +537,7 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
     }
 
     o = minp;
+    currentIn = ray;
   }
 
   if(haslight)
@@ -514,6 +560,11 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
     result = CudaVec(0, 0, 0);
     if(o.valid)
     {
+      if(geolist[o.geo].reflectr>1e-3)
+      {
+        return;
+      }
+
       int hitcount=0;
       CudaVec lightColor;
       for(int ii=0; ii<ln; ii++)
@@ -522,12 +573,12 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
         {
           printf("\n\ntest lightGeo # %d\n", lightGeoList[ii]);
         }
-        for(int j=0; j<LightSample; j++)
+//        for(int j=0; j<; j++)
         {
-          CudaVertex v = geolist[lightGeoList[ii]].Sample(index);
+          CudaVertex v = geolist[lightGeoList[ii]].Sample(index, randNum, randN);
           if(debuginfo)
           {
-            printf("  sample vertex # %d\n", j);
+//            printf("  sample vertex # %d\n", j);
             printf("  d = %.6lf, ", (v.p-o.p).Length()); v.p.Print(); printf("\n");
           }
           CudaRay ray; ray.o = o.p; ray.n = CudaVec4((v.p.Vec3()-o.p.Vec3()).Normalized(), 0.0);
@@ -563,11 +614,11 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
           {
             hitcount++;
             float r = 1.0/d*d;
-            if(r>2*M_PI) r=2*M_PI;
-            lightColor = lightColor + geolist[lighthit].emission * fabs((v.p-o.p).Dot(o.n))*r;
+            if(r>1/fabs(ray.n.Dot(o.n))) r=1/fabs(ray.n.Dot(o.n));
+            lightColor = lightColor + geolist[lighthit].emission * fabs(ray.n.Dot(o.n))*r * 3;
             if(debuginfo)
             {
-              printf("lightgeo # %d visible", lighthit); (geolist[lighthit].emission * fabs((v.p-o.p).Dot(o.n))).Print(); printf("\n");
+              printf("lightgeo # %d visible", lighthit); (geolist[lighthit].emission * fabs(ray.n.Dot(o.n))).Print(); printf("\n");
               printf("now light color = "); lightColor.Print(); printf("\n");
             }
           }
@@ -586,7 +637,6 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
   }
 }
 
-extern "C"
 __device__ CudaRay GetRay(int xx, int yy, int width, int height, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right)
 {
   float vh = M_PI/3;
@@ -601,7 +651,6 @@ __device__ CudaRay GetRay(int xx, int yy, int width, int height, CudaVec camera,
   return ray;
 }
 
-extern "C"
 __global__ void debug_GetRay(int xx, int yy, int width, int height, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaRay* result)
 {
   printf("debug_GetRay\n");
@@ -618,9 +667,6 @@ __global__ void debug_GetRay(int xx, int yy, int width, int height, CudaVec came
   *result = ray;
 }
 
-#define SampleNum (1)
-
-extern "C"
 __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int* lightGeoList, int ln, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer, double* randNum, int randN, bool debuginfo = false)
 {
   __shared__ CudaVec tResults[SampleNum];
@@ -632,6 +678,7 @@ __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int* lightGeo
 
   if(xx<0 || xx>=w || yy<0 || yy>=h) return;
   int index = xx+yy*w;
+  int seed = index*blockDim.x+threadIdx.x;
   CudaRay ray = GetRay(xx, yy, w, h, camera, up, forward, right);
 //  buffer[index] = CudaVec(0, 0, 0);
 
@@ -662,25 +709,26 @@ __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int* lightGeo
     {
 //      minp.valid=false;
       CudaVec result;
-      CudaMonteCarloSample(geolist, n, lightGeoList, ln, minp, ray, randNum, randN, result, index*blockDim.x+threadIdx.x, debuginfo);
+      CudaMonteCarloSample(geolist, n, lightGeoList, ln, minp, ray, randNum, randN, result, seed * 17, debuginfo);
       tResults[tid] = result;
     }
   }
 
   if(tid==0)
   {
+    int count=1;
     for(int i=1; i<blockDim.x; i++)
     {
+      if(tResults[tid].Length()>1e-3)
       tResults[tid] = tResults[tid]+tResults[i];
+      count++;
     }
-    buffer[index] = tResults[tid]/SampleNum;
+    buffer[index] = tResults[tid]/count;
   }
   __syncthreads();
 
   return;
 }
-
-extern "C"
 __global__ void CudaDivide(int w, int h, CudaVec* buffer)
 {
   int xx=blockIdx.x;
@@ -688,66 +736,6 @@ __global__ void CudaDivide(int w, int h, CudaVec* buffer)
   if(xx<0 || xx>=w || yy<0 || yy>=h) return;
   int index = xx+yy*gridDim.x;
   buffer[index] = buffer[index]/4;
-}
-
-extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer)
-{
-  float elapsed=0;
-  cudaEvent_t start, stop;
-  CudaVec* dev_buffer;
-  memset(buffer, 0, sizeof(CudaVec)*w*h);
-  gpuErrchk( cudaMalloc((void**)&dev_buffer, sizeof(CudaVec)*(w*h+10)));
-
-  printf("start cuda render\n");
-  printf("buffer.size=%d %d\n", sizeof(buffer), sizeof(buffer)/sizeof(CudaVec));
-  fflush(stdout);
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start, 0);
-//  for(int i=0; i<4; i++)
-//  {
-    CudaMonteCarloRender<<<dim3(w, h), SampleNum>>>(dev_geos, n, dev_lightGeoList, ln, w, h, camera, up, forward, right, dev_buffer, dev_randNum, randN);
-//  }
-//  CudaDivide<<<dim3(w, h), 1>>>(w, h, dev_buffer);
-  cudaEventRecord(stop, 0);
-  cudaEventSynchronize (stop);
-  cudaEventElapsedTime(&elapsed, start, stop);
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
-  printf("The elapsed time in gpu was %.2f ms", elapsed);
-  fflush(stdout);
-  printf("end cuda render\n");
-  fflush(stdout);
-
-//  gpuErrchk( cudaPeekAtLastError() );
-//  gpuErrchk( cudaDeviceSynchronize() );
-
-  clock_t begin = clock();
-  gpuErrchk( cudaMemcpy(buffer, dev_buffer, sizeof(CudaVec)*(w*h+10), cudaMemcpyDeviceToHost));
-  clock_t end = clock();
-  double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-  printf("cudaMemcpy costs %.6lf secs.\n", elapsed_secs);
-  fflush(stdout);
-  gpuErrchk( cudaFree(dev_buffer));
-}
-
-extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right)
-{
-  printf("CudaGetRayTest: %d %d %d %d\n", xx, yy, w, h);
-  camera.Print(); up.Print(); forward.Print(); right.Print();
-  printf("\n");
-  CudaRay result;
-  CudaRay* dev_result;
-
-  cudaMalloc((void**)&dev_result, sizeof(CudaRay));
-
-  debug_GetRay<<<1, 1>>>(xx, yy, w, h, camera, up, forward, right, dev_result);
-//  cudaMemcpy(&result, dev_result, sizeof(CudaRay), cudaMemcpyDeviceToHost);
-  result.Print();
-  ((result.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2).Print();
-  printf("\n");
-
-  fflush(stdout);
 }
 
 __global__ void debug_MonteCarloRender(CudaGeometry* geolist, int n, int* lightGeoList, int ln, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer, double* randNum, int randN, bool debuginfo = false, int _xx=-1, int _yy=1)
@@ -829,11 +817,136 @@ extern "C" void CudaMonteCarloSampleTest(int xx, int yy, int w, int h, CudaVec c
 //  gpuErrchk( cudaPeekAtLastError() );
 //  gpuErrchk( cudaDeviceSynchronize() );
 
-//  clock_t begin = clock();
-//  gpuErrchk( cudaMemcpy(buffer, dev_buffer, sizeof(CudaVec)*(w*h+10), cudaMemcpyDeviceToHost));
-//  clock_t end = clock();
-//  double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-//  printf("cudaMemcpy costs %.6lf secs.\n", elapsed_secs);
-//  fflush(stdout);
   gpuErrchk( cudaFree(dev_buffer));
+}
+
+extern "C"
+void CudaInit(CudaGeometry* geos, int _n, int* lightList, int _ln, double* h, double* randNum, int _randN)
+{
+//  cudaOutput = fopen("cudaoutput.txt", "w");
+  hits=h;
+  printf("cuda part init %d\n", _n);
+  fflush(stdout);
+  if(!geos)
+  {
+    return;
+  }
+
+  if(!dev_geos)
+  {
+    gpuErrchk(cudaFree(dev_geos));
+    gpuErrchk(cudaFree(dev_hits));
+    gpuErrchk(cudaFree(dev_randNum));
+    gpuErrchk(cudaFree(dev_lightGeoList));
+  }
+
+  n = _n;
+  randN = _randN;
+  ln = _ln;
+
+  printf("CUDA: sizeof(CudaGeometry)=%d, sizeof(CudaVec)=%d, n=%d\n", sizeof(CudaGeometry), sizeof(CudaVec), n);
+
+  gpuErrchk( cudaMalloc((void**)&dev_geos, sizeof(CudaGeometry)*n));
+  gpuErrchk( cudaMalloc((void**)&dev_hits, sizeof(double)*n));
+  gpuErrchk( cudaMalloc((void**)&dev_lightGeoList, sizeof(int)*ln));
+  gpuErrchk( cudaMalloc((void**)&dev_randNum, sizeof(double)*randN));
+  gpuErrchk( cudaMemcpy(dev_geos, geos, sizeof(CudaGeometry)*n, cudaMemcpyHostToDevice));
+  gpuErrchk( cudaMemcpy(dev_randNum, randNum, sizeof(double)*randN, cudaMemcpyHostToDevice));
+  gpuErrchk( cudaMemcpy(dev_lightGeoList, lightList, sizeof(int)*ln, cudaMemcpyHostToDevice));
+  gpuErrchk( cudaPeekAtLastError() );
+  fflush(stdout);
+}
+
+extern "C"
+void CudaEnd()
+{
+  if(dev_geos)
+  {
+    gpuErrchk(cudaFree(dev_geos));
+    gpuErrchk(cudaFree(dev_hits));
+    gpuErrchk(cudaFree(dev_randNum));
+    gpuErrchk(cudaFree(dev_lightGeoList));
+  }
+}
+
+extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer)
+{
+  float elapsed=0;
+  cudaEvent_t start, stop;
+  CudaVec* dev_buffer;
+  memset(buffer, 0, sizeof(CudaVec)*w*h);
+  gpuErrchk( cudaMalloc((void**)&dev_buffer, sizeof(CudaVec)*(w*h+10)));
+
+  printf("start cuda render\n");
+  printf("buffer.size=%d %d\n", sizeof(buffer), sizeof(buffer)/sizeof(CudaVec));
+  fflush(stdout);
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start, 0);
+//  for(int i=0; i<4; i++)
+//  {
+    CudaMonteCarloRender<<<dim3(w, h), SampleNum>>>(dev_geos, n, dev_lightGeoList, ln, w, h, camera, up, forward, right, dev_buffer, dev_randNum, randN);
+//  }
+//  CudaDivide<<<dim3(w, h), 1>>>(w, h, dev_buffer);
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize (stop);
+  cudaEventElapsedTime(&elapsed, start, stop);
+  cudaEventDestroy(start);
+  cudaEventDestroy(stop);
+  printf("The elapsed time in gpu was %.2f ms", elapsed);
+  fflush(stdout);
+  printf("end cuda render\n");
+  fflush(stdout);
+
+//  gpuErrchk( cudaPeekAtLastError() );
+//  gpuErrchk( cudaDeviceSynchronize() );
+
+  clock_t begin = clock();
+  gpuErrchk( cudaMemcpy(buffer, dev_buffer, sizeof(CudaVec)*(w*h+10), cudaMemcpyDeviceToHost));
+  clock_t end = clock();
+  double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+  printf("cudaMemcpy costs %.6lf secs.\n", elapsed_secs);
+  fflush(stdout);
+  gpuErrchk( cudaFree(dev_buffer));
+}
+
+extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right)
+{
+  printf("CudaGetRayTest: %d %d %d %d\n", xx, yy, w, h);
+  camera.Print(); up.Print(); forward.Print(); right.Print();
+  printf("\n");
+  CudaRay result;
+  CudaRay* dev_result;
+
+  cudaMalloc((void**)&dev_result, sizeof(CudaRay));
+
+  debug_GetRay<<<1, 1>>>(xx, yy, w, h, camera, up, forward, right, dev_result);
+//  cudaMemcpy(&result, dev_result, sizeof(CudaRay), cudaMemcpyDeviceToHost);
+  result.Print();
+  ((result.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2).Print();
+  printf("\n");
+
+  fflush(stdout);
+}
+
+extern "C" void CudaIntersect(CudaRay ray)
+{
+  printf("CudaIntersect n=%d\n", n);
+  ray.Print();
+  fflush(stdout);
+  IntersectGeo<<<n, 1>>>(dev_geos, n, ray, dev_hits);
+  cudaMemcpy(hits, dev_hits, sizeof(double) * n, cudaMemcpyDeviceToHost);
+  for(int i=0; i<n; i++)
+  {
+    if(hits[i] >=0 )
+    {
+//      printf("geo #%d hit\n", i);
+    }
+    else
+    {
+//      printf("geo #%d NOT hit\n", i);
+    }
+  }
+//  printf("cuda part ended");
+  fflush(stdout);
 }

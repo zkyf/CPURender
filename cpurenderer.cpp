@@ -882,6 +882,10 @@ uchar* CPURenderer::MonteCarloRender()
       newg.specular = CudaVec(input[i].specular.r, input[i].specular.g, input[i].specular.b);
       newg.reflectr = input[i].reflectr;
       newg.refractr = input[i].refractr;
+      if(input[i].reflectr>1e-3)
+      {
+        qDebug() << "ReflectGeo #" << i << input[i].reflectr;
+      }
 
       for(int j=0; j<input[i].vecs.size(); j++)
       {

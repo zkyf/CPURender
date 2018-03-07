@@ -185,14 +185,12 @@ void MainWindow::on_graphicsView_MousePressEvent(QMouseEvent *event)
   qDebug() << "clicked @" << event->pos() << "on scene @" << pp;
   if(method==MCRT)
   {
-    Ray ray = render.GetRay(pp.x(), pp.y());
-//    KDTree::IR ir = render.kdtree.Intersect(ray);
-//    qDebug() << ir.valid << ir.d;
+//    Ray ray = render.GetRay(pp.x(), pp.y());
 //    ir.hp.valid=ir.valid;
-    CudaRay cray; cray.FromRay(ray);
-    CudaIntersect(cray);
-    CudaMonteCarloSampleTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
-    NewFrame();
+//    CudaRay cray; cray.FromRay(ray);
+//    CudaMonteCarloSampleTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(),CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), CudaVec(render.camera.right()));
+//    CudaMonteCarloSampleTest(pp.x(), pp.y(), rendersize.width(), rendersize.height(), CudaVec(render.camera.translation()), CudaVec(render.camera.up()), CudaVec(render.camera.forward()), render.camera.right());
+//    NewFrame();
 //    if(ir.valid)
     {
 //      qDebug() << ir.geo->name << ir.geo->reflectr;
