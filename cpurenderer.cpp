@@ -5,6 +5,8 @@ extern "C" void CudaInit(CudaGeometry* geos, int _n, int* lightList, int _ln, do
 extern "C" void CudaEnd();
 extern "C" void CudaRender(int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right, CudaVec* buffer);
 extern "C" void CudaGetRayTest(int xx, int yy, int w, int h, CudaVec camera, CudaVec up, CudaVec forward, CudaVec right);
+extern "C" void CudaVectorTest();
+extern "C" void CudaKdTreeTest(CudaGeometry* geolist, int n);
 
 QVector3D operator*(const QMatrix3x3& m, const QVector3D& x)
 {
@@ -89,6 +91,8 @@ CPURenderer::CPURenderer(QSize s) :
   farPlane = 100.0;
 
   srand(time(0));
+
+//  CudaVectorTest();
 }
 
 CPURenderer::~CPURenderer()
@@ -884,7 +888,7 @@ uchar* CPURenderer::MonteCarloRender()
       newg.refractr = input[i].refractr;
       if(input[i].reflectr>1e-3)
       {
-        qDebug() << "ReflectGeo #" << i << input[i].reflectr;
+//        qDebug() << "ReflectGeo #" << i << input[i].reflectr;
       }
 
       for(int j=0; j<input[i].vecs.size(); j++)
@@ -902,7 +906,8 @@ uchar* CPURenderer::MonteCarloRender()
       randNum[i] = (double)(rand()%nos)/nos;
     }
     printf("HOST: sizeof(CudaGeometry)=%d, sizeof(CudaVec)=%d n=%d\n", sizeof(CudaGeometry), sizeof(CudaVec), input.size());
-    qDebug() << "lightGeoList = " << lightGeoList;
+//    qDebug() << "lightGeoList = " << lightGeoList;
+
     CudaInit(geos, input.size(), lightGeoList.data(), lightGeoList.size(), hits, randNum, 10000);
   }
 

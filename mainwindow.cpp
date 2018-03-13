@@ -11,7 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
   ui->setupUi(this);
   render.Resize(ui->graphicsView->size());
-  render.CamTranslate(QVector3D(0, 0, 2));
+  render.CamTranslate(QVector3D(0, 0, 1));
   Light light;
   light.SetPointLight(QVector3D(0, 0, 2));
   render.AddLight(light);
