@@ -5,6 +5,8 @@ Ka 0.27 0.27 0.27
 Tf 0.00 0.00 0.00
 Ni 1.80
 Ks 1.00 1.00 1.00
+LJX_REFRACT_RATIO 1.0
+
 newmtl blinn2SG
 illum 4
 Kd 0.80 0.80 0.80
@@ -12,7 +14,7 @@ Ka 0.78 0.78 0.78
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
-Ljx_emit 1.00 1.00 1.00
+Ljx_EMIT 1.00 1.00 1.00
 
 newmtl initialShadingGroup
 illum 4

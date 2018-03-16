@@ -378,6 +378,7 @@ struct CudaGeometry
   CudaVec emission = CudaVec();
   double reflectr = 0.0;
   double refractr = 0.0;
+  double ni = 1.0;
   __device__ CudaVertex Sample(curandState_t* randstate, double* randNum, int randN) const
   {
     // to do
@@ -415,6 +416,7 @@ struct CudaRay
 {
   CudaVec4 o;
   CudaVec4 n;
+  float d = 1.0;
 
   __host__ __device__ void IntersectGeo(const CudaGeometry& geo, CudaVertex& result) const
   {
@@ -1198,17 +1200,6 @@ struct CudaKdTree
     else printf("empty tree\n");
   }
 
-#define CudaKdTreeParallelThreadNum (100)
-
-  __global__ void ParallelHit(CudaRay ray, CudaVertex& result, bool debuginfo = false)
-  {
-    __shared__ CudaVertex tResults[CudaKdTreeParallelThreadNum];
-    __shared__ Node* tTaskList[CudaKdTreeParallelThreadNum];
-    result = CudaVertex(false);
-    float global_mind = 1e20;
-
-  }
-
   __host__ __device__ CudaVertex Hit(CudaRay ray, bool debuginfo = false)
   {
     if(root==nullptr)
@@ -1223,8 +1214,8 @@ struct CudaKdTree
       CudaVertex global_minp(false);
       while(queue.size()>0)
       {
-        Node* now = queue[0];
-        queue.remove(0);
+        Node* now = queue.last();
+        queue.remove(queue.size()-1);
         if(!now->Hit(ray, debuginfo))
         {
           continue;
@@ -1343,9 +1334,47 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
     CudaRay ray;
     ray.o=o.p;
 
-    if(geolist[o.geo].reflectr>EPS)
+    float p = curand_uniform(randstate);
+
+    if(p<=geolist[o.geo].reflectr)
     {
       ray.n = (currentIn.n-2*o.n*(currentIn.n.Dot(o.n))).Normalized();
+      ray.d = currentIn.d;
+    }
+    else if(p<=geolist[o.geo].reflectr+geolist[o.geo].refractr)
+    {
+      if(fabs(currentIn.d-geolist[o.geo].ni)<EPS)
+      {
+        ray.d = 1.0;
+      }
+      else
+      {
+        ray.d = geolist[o.geo].ni;
+      }
+
+      if((currentIn.n+o.n).Length()<EPS)
+      {
+        // verticle
+        ray.n = currentIn.n;
+      }
+      else
+      {
+        float sinn1 = sqrt(1-pow(currentIn.n.Dot(o.n), 2));
+        float sinn2 = currentIn.d*sinn1/ray.d;
+        if(sinn2>=1.0)
+        {
+          // total reflection
+          ray.n = (currentIn.n-2*o.n*(currentIn.n.Dot(o.n))).Normalized();
+          ray.d = currentIn.d;
+        }
+        else
+        {
+          CudaVec parallelAxis = currentIn.n.Vec3()-currentIn.n.Dot(o.n)*o.n.Vec3();
+          parallelAxis = parallelAxis.Normalized();
+          float cosn2 = sqrt(1-sinn2*sinn2);
+          ray.n = CudaVec4(o.n.Vec3()*(-cosn2)+parallelAxis*sinn2, 0.0);
+        }
+      }
     }
     else
     {
@@ -1367,23 +1396,26 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
       }
     }
 
+    ray.n.w=0; ray.n = ray.n.Normalized(); ray.o.w=1;
+
+//    currentColor = currentColor*CudaMonteCarloHit(geolist, n, ray, o, haslight);
+
     double mind=1e20;
     CudaVertex minp(false);
-    minp = kdtree->Hit(ray);
 
-//    for(int i=0; i<n; i++)
-//    {
-//      CudaVertex hp;
-//      ray.IntersectGeo(geolist[i], hp);
-//      if(hp.valid)
-//      {
-//        if((hp.p-o.p).Length()>EPS && (hp.p-o.p).Length()<mind)
-//        {
-//          mind=(hp.p-o.p).Length();
-//          minp=hp;
-//        }
-//      }
-//    }
+    for(int i=0; i<n; i++)
+    {
+      CudaVertex hp;
+      ray.IntersectGeo(geolist[i], hp);
+      if(hp.valid)
+      {
+        if((hp.p-ray.o).Length()>EPS && (hp.p-ray.o).Length()<mind)
+        {
+          mind=(hp.p-ray.o).Length();
+          minp=hp;
+        }
+      }
+    }
 
     if(minp.valid)
     {
@@ -1398,7 +1430,7 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
       {
         float r = 1.0/(minp.p-o.p).Length();
         r = r*r;
-        if(r>1/fabs(ray.n.Dot(o.n))) r=1/fabs(ray.n.Dot(o.n));
+        if(r>2/fabs(ray.n.Dot(o.n))) r=2/fabs(ray.n.Dot(o.n));
         currentColor = currentColor * geolist[minp.geo].emission * fabs(ray.n.Dot(o.n)) * r * 3;
         if(debuginfo)
         {
@@ -1411,7 +1443,7 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
       {
         float r = 1.0/(minp.p-o.p).Length();
         r = r*r;
-        if(r>1) r=1;
+        if(r>2) r=2;
         currentColor = currentColor * geolist[minp.geo].diffuse * fabs(ray.n.Dot(o.n)) * r;
         if(debuginfo)
         {
@@ -1456,80 +1488,86 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
       printf("FINAL: NOT haslight "); currentColor.Print(); printf("\n");
       printf("# %d lightGeo in total\n", ln);
     }
-    result = CudaVec(0, 0, 0);
-    if(o.valid)
-    {
-      if(geolist[o.geo].reflectr>EPS)
-      {
-        return;
-      }
 
-      int hitcount=0;
-      CudaVec lightColor;
-      for(int ii=0; ii<ln; ii++)
+    if(1-geolist[o.geo].reflectr-geolist[o.geo].refractr>EPS)
+    {
+      result = CudaVec(0, 0, 0);
+      if(o.valid)
       {
-        if(debuginfo)
+        if(geolist[o.geo].reflectr>EPS)
         {
-          printf("\n\ntest lightGeo # %d\n", lightGeoList[ii]);
+          return;
         }
-        for(int j=0; j<LightGeoSampleNum; j++)
+
+        int hitcount=0;
+        CudaVec lightColor;
+        for(int ii=0; ii<ln; ii++)
         {
-          CudaVertex v = geolist[lightGeoList[ii]].Sample(randstate, randNum, randN);
           if(debuginfo)
           {
-//            printf("  sample vertex # %d\n", j);
-            printf("  d = %.6lf, ", (v.p-o.p).Length()); v.p.Print(); printf("\n");
           }
           CudaRay ray; ray.o = o.p; ray.n = CudaVec4((v.p.Vec3()-o.p.Vec3()).Normalized(), 0.0);
           if(ray.n.Dot(o.n)<0) continue;
           bool visible = true;
-          int lighthit = lightGeoList[ii];
-          double d = (v.p-o.p).Length();
-          for(int k=0; k<n; k++)
+          for(int j=0; j<LightGeoSampleNum; j++)
           {
-            if(k==lightGeoList[ii]) continue;
-            CudaVertex ir;
-            ray.IntersectGeo(geolist[k], ir);
-            if(ir.valid && (ir.p-o.p).Length()<d && (ir.p-o.p).Length()>EPS)
-            {
-              v = ir;
-              d = (ir.p-o.p).Length();
-              if(debuginfo)
-              {
-                printf("  "); ray.Print();
-                printf("  geo # %d got hit @ ", k); ir.p.Print(); printf(" d = %lf emission = %.6lf\n\n", d, geolist[k].emission.Length());
-              }
-              if(geolist[k].emission.Length()>0.1)
-              {
-                lighthit = k;
-                visible = true;
-              }
-              else
-              {
-                visible = false;
-              }
-            }
-          }
-          if(visible)
-          {
-            hitcount++;
-            float r = 1.0/d*d;
-            if(r>1/fabs(ray.n.Dot(o.n))) r=1/fabs(ray.n.Dot(o.n));
-            lightColor = lightColor + geolist[lighthit].emission * fabs(ray.n.Dot(o.n))*r * 3;
+            CudaVertex v = geolist[lightGeoList[ii]].Sample(randstate, randNum, randN);
             if(debuginfo)
             {
-              printf("lightgeo # %d visible", lighthit); (geolist[lighthit].emission * fabs(ray.n.Dot(o.n))).Print(); printf("\n");
-              printf("now light color = "); lightColor.Print(); printf("\n");
+  //            printf("  sample vertex # %d\n", j);
+              printf("  d = %.6lf, ", (v.p-o.p).Length()); v.p.Print(); printf("\n");
+            }
+            CudaRay ray; ray.o = o.p; ray.n = CudaVec4((v.p.Vec3()-o.p.Vec3()).Normalized(), 0.0);
+            if(ray.n.Dot(o.n)<0) continue;
+            bool visible = true;
+            int lighthit = lightGeoList[ii];
+            double d = (v.p-o.p).Length();
+            for(int k=0; k<n; k++)
+            {
+              if(k==lightGeoList[ii]) continue;
+              CudaVertex ir;
+              ray.IntersectGeo(geolist[k], ir);
+              if(ir.valid && (ir.p-o.p).Length()<d && (ir.p-o.p).Length()>EPS)
+              {
+                v = ir;
+                d = (ir.p-o.p).Length();
+                if(debuginfo)
+                {
+                  printf("  "); ray.Print();
+                  printf("  geo # %d got hit @ ", k); ir.p.Print(); printf(" d = %lf emission = %.6lf\n\n", d, geolist[k].emission.Length());
+                }
+                if(geolist[k].emission.Length()>0.1)
+                {
+                  lighthit = k;
+                  visible = true;
+                }
+                else
+                {
+                  visible = false;
+                }
+              }
+            }
+            if(visible)
+            {
+              hitcount++;
+              float r = 1.0/d*d;
+              if(r>1/fabs(ray.n.Dot(o.n))) r=1/fabs(ray.n.Dot(o.n));
+              lightColor = lightColor + geolist[lighthit].emission * fabs(ray.n.Dot(o.n))*r * 3;
+              if(debuginfo)
+              {
+                printf("lightgeo # %d visible", lighthit); (geolist[lighthit].emission * fabs(ray.n.Dot(o.n))).Print(); printf("\n");
+                printf("now light color = "); lightColor.Print(); printf("\n");
+              }
             }
           }
         }
-      }
-      if(hitcount>0)
-      {
-        result = currentColor * lightColor / hitcount;
-        if(debuginfo)
+        if(hitcount>0)
         {
-          printf("\n\nFinal result color = "); result.Print(); printf("\n");
+          result = currentColor * lightColor / hitcount;
+          if(debuginfo)
+          {
+            printf("\n\nFinal result color = "); result.Print(); printf("\n");
+          }
         }
       }
     }
@@ -1613,34 +1651,34 @@ __global__ void CudaMonteCarloRender(CudaGeometry* geolist, int n, int* lightGeo
 
 //    buffer[index] = buffer[index]+(ray.n.Vec3()+CudaVec(1.0, 1.0, 1.0))/2;
 
-//    for(int gi=0; gi<n; gi++)
-//    {
-//      CudaVertex hp(false);
-//      CudaGeometry geo = geolist[gi];
-//      ray.IntersectGeo(geo, hp);
-//      if(hp.valid==true)
-//      {
-//        double d=(hp.p.Vec3()-camera).Length();
-//        if(d>EPS && d<mind)
-//        {
-//          mind=d;
-//          minp=hp;
-//        }
-//      }
-//    }
+    for(int gi=0; gi<n; gi++)
+    {
+      CudaVertex hp(false);
+      CudaGeometry geo = geolist[gi];
+      ray.IntersectGeo(geo, hp);
+      if(hp.valid==true)
+      {
+        double d=(hp.p.Vec3()-camera).Length();
+        if(d>EPS && d<mind)
+        {
+          mind=d;
+          minp=hp;
+        }
+      }
+    }
 
     CudaVertex kdtreeresult;
 //    if(seed == 0)
     {
-      kdtreeresult = kdtree->Hit(ray);
+//      kdtreeresult = kdtree->Hit(ray);
     }
 
 //    if(kdtreeresult.valid == minp.valid && (!minp.valid || ((kdtreeresult.p-minp.p).Length()<EPS && kdtreeresult.geo==minp.geo)))
     {
-      if(kdtreeresult.valid)
+      if(minp.valid)
       {
         CudaVec result;
-        CudaMonteCarloSample(geolist, n, lightGeoList, ln, kdtreeresult, ray, randNum, randN, result, seed, kdtree, &state, debuginfo);
+        CudaMonteCarloSample(geolist, n, lightGeoList, ln, minp, ray, randNum, randN, result, seed, kdtree, &state, debuginfo);
         tResults[tid] = result;
       }
     }
@@ -1806,9 +1844,9 @@ void CudaInit(CudaGeometry* geos, int _n, int* lightList, int _ln, double* h, do
   gpuErrchk( cudaPeekAtLastError() );
   fflush(stdout);
 
-  CudaBuildKdTree<<<1, 1>>>(dev_geos, _n, dev_kdtree);
+//  CudaBuildKdTree<<<1, 1>>>(dev_geos, _n, dev_kdtree);
   fflush(stdout);
-  cudaDeviceSynchronize();
+//  cudaDeviceSynchronize();
 }
 
 extern "C"

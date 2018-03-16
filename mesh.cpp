@@ -273,16 +273,17 @@ void MyMesh::Render(CPURenderer *render)
       geo.vecs.push_back(v);
     }
     if(noNorm) geo.SetNormal();
-    geo.ambient=faces[fid].mat.ka;
-    geo.diffuse=faces[fid].mat.kd;
-    geo.specular=faces[fid].mat.ks;
-    geo.emission=faces[fid].mat.em;
-    geo.text=faces[fid].mat.mdid;
-    geo.stext=faces[fid].mat.msid;
-    geo.ns=faces[fid].mat.ns;
-    geo.name=faces[fid].name;
-    geo.refractr=faces[fid].mat.refractr;
-    geo.reflectr=faces[fid].mat.reflectr;
+    geo.ambient  = faces[fid].mat.ka;
+    geo.diffuse  = faces[fid].mat.kd;
+    geo.specular = faces[fid].mat.ks;
+    geo.emission = faces[fid].mat.em;
+    geo.text     = faces[fid].mat.mdid;
+    geo.stext    = faces[fid].mat.msid;
+    geo.ns       = faces[fid].mat.ns;
+    geo.ni       = faces[fid].mat.ni;
+    geo.name     = faces[fid].name;
+    geo.refractr = faces[fid].mat.refractr;
+    geo.reflectr = faces[fid].mat.reflectr;
     render->AddGeometry(geo);
   }
 
@@ -998,6 +999,11 @@ QVector<MyMaterial> LoadMTL(QString path)
     else if(c=="NS")
     {
       in >> mat.ns;
+      dirty=true;
+    }
+    else if(c=="NI")
+    {
+      in >> mat.ni;
       dirty=true;
     }
     else if(c=="MAP_KA")

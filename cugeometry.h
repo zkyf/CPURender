@@ -53,17 +53,20 @@ struct CudaGeometry
   CudaVec emission = CudaVec();
   double reflectr = 0.0;
   double refractr = 0.0;
+  double ni = 1.0;
 };
 
 struct CudaRay
 {
   CudaVec4 o;
   CudaVec4 n;
+  float d = 1.0;
 
   void FromRay(const Ray& i)
   {
     n = CudaVec4(i.n.x(), i.n.y(), i.n.z(), 0.0);
     o = CudaVec4(i.o.x(), i.o.y(), i.o.z(), 1.0);
+    d = i.ni;
   }
 };
 

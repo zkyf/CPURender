@@ -42,7 +42,7 @@ struct MyMaterial
   float reflectr = 0.0;
   float ns;
   float d;
-  float ni;
+  float ni = 1.0;
   float t;
   QString map_ka; int maid=-1;
   QString map_kd; int mdid=-1;
