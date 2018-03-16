@@ -1505,10 +1505,8 @@ __device__ void CudaMonteCarloSample(CudaGeometry* geolist, int n, int* lightGeo
         {
           if(debuginfo)
           {
+            printf("\n\ntest lightGeo # %d\n", lightGeoList[ii]);
           }
-          CudaRay ray; ray.o = o.p; ray.n = CudaVec4((v.p.Vec3()-o.p.Vec3()).Normalized(), 0.0);
-          if(ray.n.Dot(o.n)<0) continue;
-          bool visible = true;
           for(int j=0; j<LightGeoSampleNum; j++)
           {
             CudaVertex v = geolist[lightGeoList[ii]].Sample(randstate, randNum, randN);
